@@ -2,41 +2,27 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
-import os
-import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ==========================================
 # 0. CONEXIÓN SEGURA A LA BASE DE DATOS MUNICIPAL
 # ==========================================
-# st.cache_resource evita que Firebase se conecte 100 veces si entran 100 vecinos a la vez
 @st.cache_resource
 def iniciar_conexion_db():
     if not firebase_admin._apps:
         try:
-            # Intentamos leer desde los secretos de Streamlit Cloud
-            firebase_secret = st.secrets["FIREBASE_KEY"]
-        except:
-            # Si falla, intentamos leer desde las variables de entorno (GitHub)
-            firebase_secret = os.environ.get('FIREBASE_KEY')
-        
-        if firebase_secret:
-            try:
-                cred_dict = json.loads(firebase_secret)
-                
-                # --- PARCHE MUNICIPAL ANTI-ERROR PEM ---
-                # Forzamos la lectura correcta de los saltos de línea en la llave privada
-                cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
-                # ---------------------------------------
-                
-                cred = credentials.Certificate(cred_dict)
-                firebase_admin.initialize_app(cred)
-                print("🟢 Conexión exitosa a SmartLS")
-            except Exception as e:
-                st.error(f"Error en credenciales o formato: {e}")
-        else:
-            st.warning("⚠️ Modo de prueba: Llave de base de datos no detectada.")
+            # Leemos los secretos directamente en el idioma nativo de Streamlit
+            cred_dict = dict(st.secrets["firebase"])
+            
+            # Reparación vital del certificado PEM por si quedan rastros del error
+            cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+            
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            print("🟢 Conexión exitosa a SmartLS")
+        except Exception as e:
+            st.error(f"Error en credenciales o formato: {e}")
     
     return firestore.client()
 
