@@ -6,7 +6,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ==========================================
-# PROTOCOLO DE SEGURIDAD INSTITUCIONAL IMLS
+# 1. PROTOCOLO DE SEGURIDAD INSTITUCIONAL
 # ==========================================
 @st.cache_resource
 def iniciar_sistema_seguridad():
@@ -29,71 +29,142 @@ def iniciar_sistema_seguridad():
 db = iniciar_sistema_seguridad()
 
 # ==========================================
-# INTERFAZ EDIFICIO CONSISTORIAL
+# 2. CONFIGURACIÓN VISUAL GENERAL
 # ==========================================
-st.set_page_config(page_title="Seguridad de Acceso | I.M. La Serena", layout="centered")
+st.set_page_config(page_title="Control de Acceso | I.M. La Serena", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #FFFFFF; }
-    div.stButton > button {
-        background-color: #FFD700 !important; color: #000000 !important;
-        font-weight: bold; border-radius: 4px; border: 1px solid #B89600;
-        height: 3.5em; width: 100%; font-size: 1.1em;
+    .stApp { background-color: #F8F9FA; }
+    /* Estilo de Tarjetas del Panel */
+    .tarjeta-visita {
+        background-color: white; padding: 15px; border-radius: 8px; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px; border-left: 4px solid #FFD700;
     }
-    .main-header { text-align: center; color: #333333; margin-bottom: 10px; }
+    .nombre-visita { font-weight: bold; font-size: 1.1em; color: #333; margin-bottom: 2px;}
+    .depto-visita { color: #555; font-size: 0.9em; }
     </style>
 """, unsafe_allow_html=True)
 
-# Símbolo de Seguridad Institucional
-st.markdown('<div style="width:80px;height:80px;background-color:#FFD700;border-radius:15%;display:flex;align-items:center;justify-content:center;font-size:40px;margin:auto;box-shadow: 0 4px 8px rgba(0,0,0,0.1);">🏛️</div>', unsafe_allow_html=True)
-
-st.markdown("<h2 class='main-header'>Seguridad al Acceso Recinto Municipal</h2>", unsafe_allow_html=True)
-st.markdown("<h4 style='text-align: center; color: #666666;'>Edificio Consistorial IMLS</h4>", unsafe_allow_html=True)
-st.divider()
+# ==========================================
+# 3. ENRUTADOR (MENÚ LATERAL)
+# ==========================================
+st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Escudo_de_La_Serena.svg/800px-Escudo_de_La_Serena.svg.png", width=100)
+st.sidebar.markdown("### Sistema Smart IMLS")
+modo_vista = st.sidebar.radio("Navegación del Sistema", ["🖥️ Tótem de Visitas (Público)", "🛡️ Panel de Control (Guardia)"])
+st.sidebar.divider()
+st.sidebar.caption("Sesión Segura: Edificio Consistorial")
 
 # ==========================================
-# BITÁCORA DE CONTROL DE INGRESO
+# 4. MODO 1: TÓTEM PÚBLICO (ACCESO)
 # ==========================================
-with st.form("registro_consistorial"):
-    col1, col2 = st.columns(2)
-    with col1:
-        rut = st.text_input("RUT del Visitante", placeholder="Ej: 12.345.678-9")
-    with col2:
-        nombre = st.text_input("Nombre Completo")
+if modo_vista == "🖥️ Tótem de Visitas (Público)":
     
-    depto = st.selectbox("Departamento de Destino", 
-                         ["Alcaldía", "Secretaría Municipal", "DIDECO", "Obras (DOM)", "Rentas", "Jurídico", "Control"])
+    # Restringimos el ancho para que se vea bien en tablets/tótems
+    col_vacia1, col_centro, col_vacia2 = st.columns([1, 2, 1])
     
-    motivo = st.text_area("Motivo de la Visita / Referencia de Oficina")
-    
-    submit = st.form_submit_button("VALIDAR Y REGISTRAR INGRESO")
+    with col_centro:
+        st.markdown('<div style="text-align: center; font-size: 50px; margin-bottom: -20px;">🏛️</div>', unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #333;'>Registro de Visitas</h2>", unsafe_allow_html=True)
+        st.markdown("<h5 style='text-align: center; color: #666; margin-top: -10px;'>Edificio Consistorial IMLS</h5>", unsafe_allow_html=True)
+        st.divider()
 
-    if submit:
-        if db and rut and nombre and motivo:
-            with st.spinner("Procesando registro en bitácora digital..."):
-                try:
-                    # Se añade el campo "estado" para el flujo de recepción
-                    db.collection("bitacora_consistorial").add({
-                        "rut": rut,
-                        "nombre": nombre,
-                        "departamento": depto,
-                        "motivo": motivo,
-                        "fecha_hora": datetime.now(),
-                        "estado": "En coordinación" # El estado inicial ahora es de espera
-                    })
-                    
-                    # Nuevos mensajes de coordinación institucional
-                    st.success(f"✅ REGISTRO INGRESADO: Su solicitud de atención para {depto} ha sido notificada.")
-                    st.info("⏳ **En proceso de coordinación.** Por favor, tome asiento y espere en recepción mientras gestionamos su atención con el departamento.")
-                    
-                    # Mensaje alternativo para escenarios de agenda llena (comentado como guía visual)
-                    # st.warning("⚠️ Hoy no es posible recibirle en este departamento. Por favor, agende su hora en nuestro sistema digital.")
-                    
-                except Exception as e:
-                    st.error(f"ERROR DE SISTEMA: {e}")
-        else:
-            st.warning("ATENCIÓN: Debe completar el protocolo de seguridad para procesar el ingreso.")
+        with st.form("registro_consistorial"):
+            rut = st.text_input("RUT del Visitante", placeholder="Ej: 12.345.678-9")
+            nombre = st.text_input("Nombre Completo")
+            depto = st.selectbox("Departamento de Destino", 
+                                 ["Alcaldía", "Secretaría Municipal", "DIDECO", "Obras (DOM)", "Rentas", "Jurídico", "Control"])
+            motivo = st.text_area("Motivo de la Visita / Oficina de Referencia")
+            
+            submit = st.form_submit_button("VALIDAR Y ANUNCIAR LLEGADA", use_container_width=True)
 
-st.divider()
-st.caption("Sistema de Trazabilidad Institucional | Ilustre Municipalidad de La Serena")
+            if submit:
+                if db and rut and nombre and motivo:
+                    with st.spinner("Anunciando su llegada a recepción..."):
+                        try:
+                            # ESTADO INICIAL: "En Recepción"
+                            db.collection("bitacora_consistorial").add({
+                                "rut": rut, "nombre": nombre, "departamento": depto,
+                                "motivo": motivo, "fecha_hora": datetime.now(),
+                                "estado": "En Recepción" 
+                            })
+                            st.success("✅ **REGISTRO INGRESADO.**")
+                            st.info("🛋️ **Sala de Espera Virtual:** Por favor, tome asiento. Recepción está gestionando su ingreso al edificio.")
+                        except Exception as e:
+                            st.error(f"Error de sistema: {e}")
+                else:
+                    st.warning("⚠️ Complete todos los campos solicitados.")
+
+
+# ==========================================
+# 5. MODO 2: PANEL DE CONTROL ANIMADO (GUARDIA)
+# ==========================================
+elif modo_vista == "🛡️ Panel de Control (Guardia)":
+    
+    col_titulo, col_boton = st.columns([4, 1])
+    col_titulo.markdown("## 🛡️ Central de Coordinación y Control")
+    if col_boton.button("🔄 Actualizar Panel"):
+        st.rerun()
+    st.divider()
+
+    # Columnas de la Sala de Espera Virtual (Kanban)
+    col_espera, col_coord, col_adentro, col_rechazo = st.columns(4)
+    
+    col_espera.markdown("### 🛋️ En Recepción")
+    col_coord.markdown("### ⏳ Coordinando")
+    col_adentro.markdown("### ✅ Adentro")
+    col_rechazo.markdown("### 🚫 Rechazado")
+
+    if db:
+        try:
+            # Traemos las visitas del día ordenadas por fecha
+            visitas_ref = db.collection("bitacora_consistorial").order_by("fecha_hora", direction=firestore.Query.DESCENDING).limit(30).stream()
+            
+            for doc in visitas_ref:
+                visita = doc.to_dict()
+                id_doc = doc.id
+                estado = visita.get("estado", "En Recepción")
+                hora = visita["fecha_hora"].strftime("%H:%M") if "fecha_hora" in visita else "--:--"
+                
+                # Diseño de la "tarjeta" de visita
+                tarjeta_html = f"""
+                <div class="tarjeta-visita">
+                    <div class="nombre-visita">{visita.get('nombre', 'Sin Nombre')}</div>
+                    <div class="depto-visita">🏢 {visita.get('departamento', '')} | 🕒 {hora}</div>
+                    <div class="depto-visita" style="margin-top:5px; font-style:italic;">"{visita.get('motivo', '')}"</div>
+                </div>
+                """
+
+                # Distribuir tarjetas y botones lógicos según su estado
+                if estado == "En Recepción":
+                    with col_espera:
+                        st.markdown(tarjeta_html, unsafe_allow_html=True)
+                        c1, c2 = st.columns(2)
+                        if c1.button("Coordinar", key=f"coord_{id_doc}", type="secondary", use_container_width=True):
+                            db.collection("bitacora_consistorial").document(id_doc).update({"estado": "Coordinando"})
+                            st.rerun()
+                        if c2.button("Rechazar", key=f"rech_{id_doc}", type="primary", use_container_width=True):
+                            db.collection("bitacora_consistorial").document(id_doc).update({"estado": "Rechazado"})
+                            st.rerun()
+                            
+                elif estado == "Coordinando":
+                    with col_coord:
+                        st.markdown(tarjeta_html, unsafe_allow_html=True)
+                        if st.button("Autorizar Ingreso", key=f"aut_{id_doc}", type="primary", use_container_width=True):
+                            db.collection("bitacora_consistorial").document(id_doc).update({"estado": "Adentro"})
+                            st.rerun()
+
+                elif estado == "Adentro":
+                    with col_adentro:
+                        st.markdown(tarjeta_html, unsafe_allow_html=True)
+                        if st.button("Marcar Salida", key=f"salida_{id_doc}", use_container_width=True):
+                            db.collection("bitacora_consistorial").document(id_doc).update({"estado": "Finalizado"})
+                            st.rerun()
+
+                elif estado == "Rechazado":
+                    with col_rechazo:
+                        st.markdown(tarjeta_html, unsafe_allow_html=True)
+                        st.caption("Debe agendar cita digital.")
+
+        except Exception as e:
+            st.error(f"Error al cargar el panel: {e}")
