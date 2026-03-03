@@ -14,22 +14,27 @@ from firebase_admin import credentials, firestore
 @st.cache_resource
 def iniciar_conexion_db():
     if not firebase_admin._apps:
-        # Streamlit lee los secretos de forma distinta según dónde se aloje
         try:
-            # Si usas Streamlit Cloud secrets
+            # Intentamos leer desde los secretos de Streamlit Cloud
             firebase_secret = st.secrets["FIREBASE_KEY"]
         except:
-            # Si usas GitHub Actions/Local
+            # Si falla, intentamos leer desde las variables de entorno (GitHub)
             firebase_secret = os.environ.get('FIREBASE_KEY')
         
         if firebase_secret:
             try:
                 cred_dict = json.loads(firebase_secret)
+                
+                # --- PARCHE MUNICIPAL ANTI-ERROR PEM ---
+                # Forzamos la lectura correcta de los saltos de línea en la llave privada
+                cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+                # ---------------------------------------
+                
                 cred = credentials.Certificate(cred_dict)
                 firebase_admin.initialize_app(cred)
-                print("Conexión exitosa a SmartLS")
+                print("🟢 Conexión exitosa a SmartLS")
             except Exception as e:
-                st.error(f"Error en credenciales: {e}")
+                st.error(f"Error en credenciales o formato: {e}")
         else:
             st.warning("⚠️ Modo de prueba: Llave de base de datos no detectada.")
     
@@ -187,7 +192,7 @@ if rut_ingresado and visita_datos.get('nombre') and visita_datos.get('telefono')
                 }
 
                 try:
-                    # ¡AQUÍ ESTÁ LA MAGIA! Guardamos en la colección "historico_visitas"
+                    # Guardamos en la colección "historico_visitas"
                     db.collection("historico_visitas").add(datos_para_db)
                     
                     st.success(f"¡Listo, {visita_datos['nombre']}! Tu visita ha sido notificada instantáneamente a nuestra base de datos.")
@@ -203,6 +208,6 @@ if rut_ingresado and visita_datos.get('nombre') and visita_datos.get('telefono')
 # ==========================================
 st.divider()
 st.caption("""
-    © 2024 Ilustre Municipalidad de La Serena. | Administración Alcaldesa Daniela Norambuena. |
+    © 2026 Ilustre Municipalidad de La Serena. | Administración Alcaldesa Daniela Norambuena. |
     Tecnología Smart City In-House (Austeridad Inteligente). | $0 Costo de Inversión en Software.
 """)
