@@ -2,27 +2,31 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
+import json
+import base64
 import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ==========================================
-# 0. CONEXIÓN SEGURA A LA BASE DE DATOS MUNICIPAL
+# 0. CONEXIÓN SEGURA INFALIBLE (Base64)
 # ==========================================
 @st.cache_resource
 def iniciar_conexion_db():
     if not firebase_admin._apps:
         try:
-            # Leemos los secretos directamente en el idioma nativo de Streamlit
-            cred_dict = dict(st.secrets["firebase"])
+            # 1. Leemos la clave encriptada de los secretos
+            b64_texto = st.secrets["CLAVE_SECRETA"]
             
-            # Reparación vital del certificado PEM por si quedan rastros del error
-            cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+            # 2. La decodificamos a su formato JSON original exacto
+            json_texto = base64.b64decode(b64_texto).decode('utf-8')
+            cred_dict = json.loads(json_texto)
             
+            # 3. Conectamos
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
             print("🟢 Conexión exitosa a SmartLS")
         except Exception as e:
-            st.error(f"Error en credenciales o formato: {e}")
+            st.error(f"Error crítico de conexión: {e}")
     
     return firestore.client()
 
