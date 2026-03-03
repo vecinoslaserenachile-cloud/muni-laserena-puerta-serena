@@ -6,80 +6,84 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ==========================================
-# 0. CONEXIÓN DIRECTA Y SEGURA
+# 0. CONEXIÓN BLINDADA (Austeridad Inteligente)
 # ==========================================
 @st.cache_resource
 def iniciar_conexion():
     if not firebase_admin._apps:
         try:
-            # Leemos el bloque [firebase] de los secretos
+            # Extraemos los secretos oficiales
             cred_dict = dict(st.secrets["firebase"])
-            # Limpieza forzada de la llave para evitar el error MalformedFraming
-            cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+            
+            # --- LIMPIEZA QUIRÚRGICA DE CARACTERES ---
+            # Eliminamos espacios, tabulaciones y saltos de línea basura
+            limpia_key = cred_dict["private_key"].strip().replace("\t", "").replace(" ", "")
+            # Reconstruimos los saltos de línea legítimos del certificado
+            cred_dict["private_key"] = limpia_key.replace("\\n", "\n").replace("-----BEGINPRIVATEKEY-----", "-----BEGIN PRIVATE KEY-----").replace("-----ENDPRIVATEKEY-----", "-----END PRIVATE KEY-----")
             
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
             return firestore.client()
         except Exception as e:
-            st.error(f"Error de conexión: {e}")
+            st.error(f"Error en llave de seguridad: {e}")
             return None
     return firestore.client()
 
 db = iniciar_conexion()
 
 # ==========================================
-# 1. CONFIGURACIÓN VISUAL
+# 1. ESTÉTICA "GOLDEN HOUR" MUNICIPAL
 # ==========================================
-st.set_page_config(page_title="Puerta Serena", page_icon="🚪", layout="centered")
+st.set_page_config(page_title="Puerta Serena Smart", page_icon="🚪", layout="centered")
 
 primary_color = "#FFD700" 
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #FFFFFF; color: #333333; }}
     div.stButton > button:first-child {{
-        background-color: {primary_color}; border-radius: 10px; font-weight: bold;
+        background-color: {primary_color}; border: none; border-radius: 10px; font-weight: bold;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }}
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. MANEJO SEGURO DE IMAGEN (Línea 92 corregida)
+# 2. ANFITRIÓN SERENITO (Modo Resiliencia)
 # ==========================================
 try:
-    # Intentamos cargar la imagen de Serenito
     st.image("serenito_anfitrion.png", width=150)
 except Exception:
-    # Si falla, mostramos el avatar dorado para que la app no se caiga
     st.markdown(f'<div style="width:100px;height:100px;background-color:{primary_color};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:40px;margin:auto;">🟡</div>', unsafe_allow_html=True)
-    st.caption("Cargando entorno visual...")
+    st.caption("Conectando entorno visual Smart...")
 
 st.markdown("<h1 style='text-align: center;'>Puerta Serena</h1>", unsafe_allow_html=True)
+st.markdown("<h3 style='text-align: center; color: #555555;'>Modernización Real · Costo $0</h3>", unsafe_allow_html=True)
 st.divider()
 
 # ==========================================
-# 3. LÓGICA DE REGISTRO
+# 3. REGISTRO DE TRAZABILIDAD CÍVICA
 # ==========================================
-rut = st.text_input("Ingresa tu RUT")
+rut_vecino = st.text_input("Ingresa tu RUT para anunciarte")
 
-if rut:
-    nombre = st.text_input("Nombre Completo")
-    depto = st.selectbox("Departamento", ["DIDECO", "Obras (DOM)", "Rentas", "Alcaldía"])
-    motivo = st.text_input("Motivo de la visita")
+if rut_vecino:
+    nombre_vecino = st.text_input("Nombre Completo")
+    depto_destino = st.selectbox("Departamento de destino", ["DIDECO", "Obras (DOM)", "Rentas", "Alcaldía"])
+    motivo_visita = st.text_input("Motivo breve de la atención")
 
     if st.button("🚪 Solicitar Acceso Smart"):
-        if db and motivo and nombre:
-            with st.spinner("Registrando..."):
-                datos = {
-                    "rut": rut, "nombre": nombre, "departamento": depto,
-                    "motivo": motivo, "fecha": datetime.now()
+        if db and motivo_visita and nombre_vecino:
+            with st.spinner("Registrando visita en SmartLS..."):
+                datos_visita = {
+                    "rut": rut_vecino, "nombre": nombre_vecino, "departamento": depto_destino,
+                    "motivo": motivo_visita, "fecha_ingreso": datetime.now(), "estado": "En Recepción"
                 }
                 try:
-                    db.collection("historico_visitas").add(datos)
-                    st.success(f"¡Listo! Notificado a {depto}.")
+                    db.collection("historico_visitas").add(datos_visita)
+                    st.success(f"¡Listo! Tu visita a {depto_destino} ha sido notificada.")
                 except Exception as e:
-                    st.error(f"Error al guardar: {e}")
+                    st.error(f"Error de respaldo en la nube: {e}")
         else:
-            st.warning("Completa todos los campos.")
+            st.warning("Director, asegúrese de completar todos los campos para el registro.")
 
 st.divider()
-st.caption("© 2026 Ilustre Municipalidad de La Serena.")
+st.caption("© 2026 Ilustre Municipalidad de La Serena. | Administración Alcaldesa Daniela Norambuena.")
