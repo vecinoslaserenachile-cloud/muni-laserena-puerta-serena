@@ -196,7 +196,6 @@ else:
                         c1, c2 = st.columns(2)
                         if c1.button("Coordinar", key=f"c_{id_d}"):
                             db.collection("bitacora_consistorial").document(id_d).update({"estado":"Coordinando"}); st.rerun()
-                        # Se reincorpora el botón para rechazar visitas
                         if c2.button("Rechazar", key=f"r_{id_d}", type="primary"):
                             db.collection("bitacora_consistorial").document(id_d).update({"estado":"Rechazado"}); st.rerun()
                             
@@ -218,14 +217,28 @@ else:
                         st.caption("Agendar cita digital.")
                         
                 elif est == "Finalizado": 
-                    historico.append(v)
+                    # Filtro de seguridad para evitar caídas con registros antiguos incompletos
+                    registro_seguro = {
+                        "nombre": v.get("nombre", "Sin registro"),
+                        "rut": v.get("rut", "Sin registro"),
+                        "numero_serie": v.get("numero_serie", "N/A"),
+                        "departamento": v.get("departamento", "Sin registro"),
+                        "hora_ingreso": h_in
+                    }
+                    historico.append(registro_seguro)
             
             st.divider()
             st.markdown("### 📋 Bitácora de Salidas")
             if historico: 
                 df_historico = pd.DataFrame(historico)
-                df_mostrar = df_historico[["nombre", "rut", "numero_serie", "departamento", "fecha_hora"]].copy()
-                df_mostrar = df_mostrar.rename(columns={"numero_serie": "Nº Doc", "fecha_hora":"Hora Ingreso"})
+                df_mostrar = df_historico[["nombre", "rut", "numero_serie", "departamento", "hora_ingreso"]].copy()
+                df_mostrar = df_mostrar.rename(columns={
+                    "nombre": "Nombre Completo",
+                    "rut": "RUT",
+                    "numero_serie": "Nº Doc",
+                    "departamento": "Destino",
+                    "hora_ingreso": "Hora Ingreso"
+                })
                 st.dataframe(df_mostrar, use_container_width=True)
 
     # ==========================================
@@ -244,17 +257,24 @@ else:
                     df = pd.DataFrame(lista_v)
                     kpi1, kpi2, kpi3 = st.columns(3)
                     kpi1.metric("Total Visitas Acumuladas", len(df))
-                    kpi2.metric("Departamentos Atendiendo", df['departamento'].nunique())
-                    kpi3.metric("Ciudadanos Únicos (RUT)", df['rut'].nunique())
+                    # Uso de .get() para evitar caídas en reportes con datos antiguos
+                    kpi2.metric("Departamentos Atendiendo", df.get('departamento', pd.Series()).nunique())
+                    kpi3.metric("Ciudadanos Únicos (RUT)", df.get('rut', pd.Series()).nunique())
                     
                     st.write("")
                     col_g1, col_g2 = st.columns(2)
                     with col_g1:
                         st.markdown("#### 🏢 Visitas por Departamento")
-                        st.bar_chart(df['departamento'].value_counts())
+                        if 'departamento' in df.columns:
+                            st.bar_chart(df['departamento'].value_counts())
+                        else:
+                            st.info("Aún no hay datos de departamentos.")
                     with col_g2:
                         st.markdown("#### 👤 Top 10 Visitantes Recurrentes")
-                        top_v = df.groupby(['rut', 'nombre']).size().reset_index(name='Visitas').sort_values(by='Visitas', ascending=False).head(10)
-                        st.dataframe(top_v, use_container_width=True)
+                        if 'rut' in df.columns and 'nombre' in df.columns:
+                            top_v = df.groupby(['rut', 'nombre']).size().reset_index(name='Visitas').sort_values(by='Visitas', ascending=False).head(10)
+                            st.dataframe(top_v, use_container_width=True)
+                        else:
+                            st.info("Aún no hay datos de visitantes.")
                 else:
                     st.info("No hay datos suficientes para generar reportes aún.")
