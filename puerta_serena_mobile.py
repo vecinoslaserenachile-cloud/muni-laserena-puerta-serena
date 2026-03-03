@@ -2,35 +2,27 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
-import json
-import base64
 import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ==========================================
-# 0. CONEXIÓN SEGURA INFALIBLE (Base64)
+# 0. CONEXIÓN DIRECTA A LA BASE DE DATOS
 # ==========================================
 @st.cache_resource
-def iniciar_conexion_db():
+def iniciar_conexion():
     if not firebase_admin._apps:
-        try:
-            # 1. Leemos la clave encriptada de los secretos
-            b64_texto = st.secrets["CLAVE_SECRETA"]
-            
-            # 2. La decodificamos a su formato JSON original exacto
-            json_texto = base64.b64decode(b64_texto).decode('utf-8')
-            cred_dict = json.loads(json_texto)
-            
-            # 3. Conectamos
-            cred = credentials.Certificate(cred_dict)
-            firebase_admin.initialize_app(cred)
-            print("🟢 Conexión exitosa a SmartLS")
-        except Exception as e:
-            st.error(f"Error crítico de conexión: {e}")
-    
+        # Lee directamente el bloque [firebase] de los secretos de Streamlit
+        cred_dict = dict(st.secrets["firebase"])
+        # Asegura que los saltos de línea de la llave se lean correctamente
+        cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred)
     return firestore.client()
 
-db = iniciar_conexion_db()
+try:
+    db = iniciar_conexion()
+except Exception as e:
+    st.error(f"Error de conexión con la base de datos: {e}")
 
 # ==========================================
 # 1. CONFIGURACIÓN ESTRATÉGICA Y VISUAL
@@ -72,7 +64,7 @@ st.markdown(f"""
         transition: all 0.3s ease;
     }}
     div.stButton > button:first-child:hover {{
-        background-color: #ECC000;
+        background-color: #ECC000; /* Un tono más oscuro para hover */
         color: #000000;
         transform: translateY(-2px);
     }}
@@ -93,10 +85,13 @@ st.markdown(f"""
 # ==========================================
 
 # Placeholder para Imagen de Serenito Anfitrión (3D Vinilo texture)
+# INSTRUCCIÓN: Subir el render 'serenito_anfitrion.png' al mismo directorio
 try:
+    # Usamos una imagen local si existe, sino un placeholder
     serenito_img = "serenito_anfitrion.png"
     st.image(serenito_img, width=150, caption="", output_format="PNG")
 except FileNotFoundError:
+    # Placeholder visual mientras el equipo sube el render real
     st.markdown(f'<div style="width:150px;height:150px;background-color:{primary_color};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:40px;margin:auto;">🟡</div>', unsafe_allow_html=True)
     st.caption("*[Insertar render 3D Serenito Anfitrión (Textura Vinilo)]*")
 
@@ -114,6 +109,7 @@ with st.container():
     st.markdown("##### 1. Identifícate")
     rut_ingresado = st.text_input("Ingresa tu RUT (Ej: 12345678-9)", placeholder="12345678-9", help="Para trazabilidad y seguridad in-house.")
 
+# Simulamos base de datos histórica para autocompletado (En producción: Lee Google Sheets)
 visitas_historicas = {
     "12345678-9": {"nombre": "Juan Pérez", "telefono": "+56912345678", "categoria": "Vecino / Dirigente"},
     "8765432-1": {"nombre": "Pedro González (Seremi Vivienda)", "telefono": "+56987654321", "categoria": "Autoridad / Gobierno"}
@@ -123,6 +119,8 @@ visita_datos = {}
 
 if rut_ingresado:
     st.divider()
+    
+    # Lógica de Enrolamiento Inteligente
     if rut_ingresado in visitas_historicas:
         visita_datos = visitas_historicas[rut_ingresado]
         st.success(f"¡Bienvenido de vuelta, {visita_datos['nombre']}!")
@@ -143,6 +141,7 @@ if rut_ingresado and visita_datos.get('nombre') and visita_datos.get('telefono')
     st.divider()
     st.markdown("##### 2. ¿A quién vienes a visitar?")
     
+    # Datos simulados de la estructura municipal (En producción: Lee Google Sheets)
     estructura_muni = {
         "DIDECO": ["Director DIDECO", "Subdirector Social", "Ficha Protección Social"],
         "Obras (DOM)": ["Director de Obras", "Edificación", "Licitaciones"],
@@ -157,7 +156,7 @@ if rut_ingresado and visita_datos.get('nombre') and visita_datos.get('telefono')
         motivo = st.text_input("Motivo breve de la visita (Ej: Consulta de patente, reunión agendada)")
 
     # ==========================================
-    # 5. ACCIÓN Y DISPARO DE ALERTAS (AHORA SÍ GUARDA EN FIREBASE)
+    # 5. ACCIÓN Y DISPARO DE ALERTAS (CON GUARDA EN FIREBASE)
     # ==========================================
     st.divider()
     submit_btn = st.button("🚪 Solicitar Acceso Smart")
@@ -166,30 +165,34 @@ if rut_ingresado and visita_datos.get('nombre') and visita_datos.get('telefono')
         if funcionario and motivo:
             with st.spinner(f"Anunciando tu visita a {funcionario} en {departamento}..."):
                 
-                timestamp_actual = datetime.now()
-                
-                # Armamos el "paquete" de datos para guardar
-                datos_para_db = {
+                # --- AQUÍ SE GUARDA LA VISITA EN FIREBASE ---
+                timestamp_obj = datetime.now()
+                datos_registro = {
                     "rut": rut_ingresado,
-                    "nombre_vecino": visita_datos.get('nombre', 'Sin nombre'),
+                    "nombre": visita_datos.get('nombre', 'Sin nombre'),
                     "telefono": visita_datos.get('telefono', 'Sin teléfono'),
                     "categoria": visita_datos.get('categoria', 'No especificada'),
-                    "departamento_destino": departamento,
-                    "funcionario_destino": funcionario,
-                    "motivo_visita": motivo,
-                    "fecha_ingreso": timestamp_actual,
-                    "estado_visita": "En Recepción"
+                    "departamento": departamento,
+                    "funcionario": funcionario,
+                    "motivo": motivo,
+                    "fecha_ingreso": timestamp_obj
                 }
-
+                
                 try:
-                    # Guardamos en la colección "historico_visitas"
-                    db.collection("historico_visitas").add(datos_para_db)
-                    
-                    st.success(f"¡Listo, {visita_datos['nombre']}! Tu visita ha sido notificada instantáneamente a nuestra base de datos.")
-                    st.info(f"El staff de {funcionario} y la recepción ya saben que estás aquí. Registro exitoso a las {timestamp_actual.strftime('%H:%M:%S')}.")
+                    db.collection("historico_visitas").add(datos_registro)
                 except Exception as e:
-                    st.error(f"Ocurrió un error al registrar la visita en el sistema: {e}")
-                    
+                    st.error(f"Aviso interno: No se pudo respaldar en la nube ({e})")
+                # ---------------------------------------------
+                
+                time.sleep(1.5) # Simulación de delay de API
+                
+                # Registro exitoso
+                timestamp = timestamp_obj.strftime("%H:%M:%S")
+                st.success(f"¡Listo, {visita_datos['nombre']}! Tu visita ha sido notificada instantáneamente.")
+                
+                # Feedback para el vecino
+                st.info(f"El staff de {funcionario} y la recepción ya saben que estás aquí. Por favor, avanza al pórtico de acceso. Registro exitoso a las {timestamp}.")
+                
         else:
             st.error("Por favor, selecciona a quién vienes a visitar y el motivo brevemente para poder anunciarte.")
 
@@ -197,7 +200,7 @@ if rut_ingresado and visita_datos.get('nombre') and visita_datos.get('telefono')
 # 6. FOOTER INSTITUCIONAL ($0 COSTO)
 # ==========================================
 st.divider()
-st.caption("""
+st.caption(f"""
     © 2026 Ilustre Municipalidad de La Serena. | Administración Alcaldesa Daniela Norambuena. |
     Tecnología Smart City In-House (Austeridad Inteligente). | $0 Costo de Inversión en Software.
 """)
