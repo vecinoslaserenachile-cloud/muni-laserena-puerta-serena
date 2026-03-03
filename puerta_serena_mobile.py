@@ -3,6 +3,7 @@ from datetime import datetime
 import pytz
 import json
 import base64
+import random
 import firebase_admin
 from firebase_admin import credentials, firestore
 import pandas as pd
@@ -12,7 +13,6 @@ import pandas as pd
 # ==========================================
 st.set_page_config(page_title="Control de Acceso | I.M. La Serena", page_icon="🏛️", layout="wide", initial_sidebar_state="expanded")
 
-# Forzar la zona horaria oficial de Chile continental
 tz_chile = pytz.timezone('America/Santiago')
 
 st.markdown("""
@@ -106,7 +106,6 @@ if modo_vista == "📱 Acceso Ciudadano (QR)":
                     with st.spinner("Anunciando su llegada a recepción..."):
                         try:
                             ahora_chile = datetime.now(tz_chile)
-                            
                             db.collection("bitacora_consistorial").add({
                                 "rut": rut, 
                                 "numero_serie": num_serie,
@@ -117,19 +116,48 @@ if modo_vista == "📱 Acceso Ciudadano (QR)":
                                 "estado": "En Recepción" 
                             })
                             
-                            # LA GRAN NOTIFICACIÓN VISUAL RECUPERADA
-                            mensaje_gigante = """
-                            <div style="background-color: #F0F8FF; padding: 40px; border-radius: 15px; border: 3px solid #FFD700; text-align: center; box-shadow: 0 8px 16px rgba(0,0,0,0.2); margin-top: 20px;">
-                                <div style="font-size: 80px; margin-bottom: 10px;">🙋‍♂️</div>
-                                <h2 style="color: #003366; font-size: 34px; margin-bottom: 25px;">¡Registro Exitoso!</h2>
-                                <p style="font-size: 26px; color: #333; line-height: 1.5; font-weight: 500;">
-                                    Vecino/a, estamos gestionando su visita. Por favor, ¿puede esperar algunos momentos? Será notificado por mientras.<br><br>
-                                    Puede contemplar nuestra hermosa Plaza de Armas o realizar algún trámite rápido.<br><br>
-                                    <b style="color: #D32F2F; font-size: 28px;">Pero esté muy atento a nuestro aviso. ¡Muchas gracias!</b>
-                                </p>
-                            </div>
-                            """
-                            st.markdown(mensaje_gigante, unsafe_allow_html=True)
+                            # MOTOR DE MENSAJES CÁLIDOS Y ROTATIVOS
+                            mensajes_bienvenida = [
+                                # Mensaje 1: Plaza de Armas
+                                """
+                                <div style="background-color: #F0F8FF; padding: 40px; border-radius: 15px; border: 3px solid #FFD700; text-align: center; box-shadow: 0 8px 16px rgba(0,0,0,0.2); margin-top: 20px;">
+                                    <div style="font-size: 80px; margin-bottom: 10px;">🙋‍♂️</div>
+                                    <h2 style="color: #003366; font-size: 34px; margin-bottom: 25px;">¡Registro Exitoso!</h2>
+                                    <p style="font-size: 26px; color: #333; line-height: 1.5; font-weight: 500;">
+                                        Vecino/a, estamos gestionando su atención. Le rogamos esperar unos momentos mientras confirmamos su ingreso con el departamento.<br><br>
+                                        Si dispone de tiempo, le invitamos a contemplar nuestra hermosa <b>Plaza de Armas</b> o realizar algún trámite rápido por el sector.<br><br>
+                                        <b style="color: #D32F2F; font-size: 28px;">Eso sí, ¡le pedimos estar muy atento a nuestro aviso en esta pantalla! Muchas gracias por su visita.</b>
+                                    </p>
+                                </div>
+                                """,
+                                # Mensaje 2: Casco Histórico
+                                """
+                                <div style="background-color: #F9FBE7; padding: 40px; border-radius: 15px; border: 3px solid #8BC34A; text-align: center; box-shadow: 0 8px 16px rgba(0,0,0,0.2); margin-top: 20px;">
+                                    <div style="font-size: 80px; margin-bottom: 10px;">🌳</div>
+                                    <h2 style="color: #33691E; font-size: 34px; margin-bottom: 25px;">¡Su llegada ha sido anunciada!</h2>
+                                    <p style="font-size: 26px; color: #333; line-height: 1.5; font-weight: 500;">
+                                        Nuestro equipo ya está coordinando su atención. La espera podría tomar algunos minutos.<br><br>
+                                        Si gusta, puede aprovechar de recorrer el encanto de nuestro <b>Casco Histórico</b> mientras aguarda.<br><br>
+                                        <b style="color: #D32F2F; font-size: 28px;">Le notificaremos su autorización por este mismo medio. ¡Agradecemos enormemente su paciencia!</b>
+                                    </p>
+                                </div>
+                                """,
+                                # Mensaje 3: Arquitectura / Descanso
+                                """
+                                <div style="background-color: #FFF3E0; padding: 40px; border-radius: 15px; border: 3px solid #FF9800; text-align: center; box-shadow: 0 8px 16px rgba(0,0,0,0.2); margin-top: 20px;">
+                                    <div style="font-size: 80px; margin-bottom: 10px;">🏛️</div>
+                                    <h2 style="color: #E65100; font-size: 34px; margin-bottom: 25px;">¡Datos recibidos correctamente!</h2>
+                                    <p style="font-size: 26px; color: #333; line-height: 1.5; font-weight: 500;">
+                                        Mientras el departamento confirma su disponibilidad, le invitamos a tomar asiento o admirar la bella <b>arquitectura colonial</b> de nuestro recinto.<br><br>
+                                        Nos pondremos en contacto con usted a la brevedad.<br><br>
+                                        <b style="color: #D32F2F; font-size: 28px;">Por favor, manténgase atento a esta pantalla para su confirmación de acceso. ¡Es un gusto recibirle!</b>
+                                    </p>
+                                </div>
+                                """
+                            ]
+                            
+                            mensaje_elegido = random.choice(mensajes_bienvenida)
+                            st.markdown(mensaje_elegido, unsafe_allow_html=True)
                             
                         except Exception as e:
                             st.error(f"Error: {e}")
@@ -137,7 +165,7 @@ if modo_vista == "📱 Acceso Ciudadano (QR)":
                     st.warning("⚠️ Complete todos los campos solicitados, incluyendo el Número de Documento.")
 
 # ==========================================
-# 6. MODO 2 Y 3: PANEL Y REPORTES (CON LOGIN)
+# 6. MODO 2: PANEL DE GUARDIA (CON LOGIN)
 # ==========================================
 else:
     if not st.session_state["autenticado"]:
@@ -187,7 +215,6 @@ else:
                     h_in = "--:--"
                 
                 doc_verificado = f"📄 Doc: {v.get('numero_serie', 'N/A')}"
-                
                 t_html = f'<div class="tarjeta-visita"><b>{v.get("nombre","")}</b><br><small>🏢 {v.get("departamento","")} | 🕒 {h_in}</small><br><small style="color:green;">{doc_verificado}</small></div>'
                 
                 if est == "En Recepción":
@@ -197,7 +224,7 @@ else:
                         if c1.button("Coordinar", key=f"c_{id_d}"):
                             db.collection("bitacora_consistorial").document(id_d).update({"estado":"Coordinando"}); st.rerun()
                         if c2.button("Rechazar", key=f"r_{id_d}", type="primary"):
-                            db.collection("bitacora_consistorial").document(id_d).update({"estado":"Rechazado"}); st.rerun()
+                            db.collection("bitacora_consistorial").document(id_d).update({"estado":"Rechazado", "hora_salida": datetime.now(tz_chile)}); st.rerun()
                             
                 elif est == "Coordinando":
                     with c_coo:
@@ -217,7 +244,6 @@ else:
                         st.caption("Agendar cita digital.")
                         
                 elif est == "Finalizado": 
-                    # Filtro de seguridad para evitar caídas con registros antiguos incompletos
                     registro_seguro = {
                         "nombre": v.get("nombre", "Sin registro"),
                         "rut": v.get("rut", "Sin registro"),
@@ -233,48 +259,105 @@ else:
                 df_historico = pd.DataFrame(historico)
                 df_mostrar = df_historico[["nombre", "rut", "numero_serie", "departamento", "hora_ingreso"]].copy()
                 df_mostrar = df_mostrar.rename(columns={
-                    "nombre": "Nombre Completo",
-                    "rut": "RUT",
-                    "numero_serie": "Nº Doc",
-                    "departamento": "Destino",
-                    "hora_ingreso": "Hora Ingreso"
+                    "nombre": "Nombre Completo", "rut": "RUT", "numero_serie": "Nº Doc", "departamento": "Destino", "hora_ingreso": "Hora Ingreso"
                 })
                 st.dataframe(df_mostrar, use_container_width=True)
 
     # ==========================================
-    # 7. MODO 3: REPORTES
+    # 7. MODO 3: REPORTES CON INTELIGENCIA (BI)
     # ==========================================
     elif modo_vista == "📊 Reportes Institucionales":
+        st.sidebar.success("✅ Sesión Activa")
+        if st.sidebar.button("Cerrar Sesión"):
+            st.session_state["autenticado"] = False
+            st.rerun()
+            
         st.markdown("## 📊 Inteligencia de Datos: Flujo de Ciudadanos")
+        st.markdown("Evaluación de atención basada en SLA global (Service Level Agreement) de la administración pública.")
         st.divider()
         
         if db:
-            with st.spinner("Analizando histórico de visitas..."):
+            with st.spinner("Analizando histórico de visitas bajo estándares de Smart City..."):
                 docs = db.collection("bitacora_consistorial").stream()
                 lista_v = [d.to_dict() for d in docs]
                 
                 if lista_v:
                     df = pd.DataFrame(lista_v)
-                    kpi1, kpi2, kpi3 = st.columns(3)
-                    kpi1.metric("Total Visitas Acumuladas", len(df))
-                    # Uso de .get() para evitar caídas en reportes con datos antiguos
-                    kpi2.metric("Departamentos Atendiendo", df.get('departamento', pd.Series()).nunique())
-                    kpi3.metric("Ciudadanos Únicos (RUT)", df.get('rut', pd.Series()).nunique())
                     
+                    if 'fecha_hora' in df.columns:
+                        df['fecha_hora'] = pd.to_datetime(df['fecha_hora'], utc=True).dt.tz_convert(tz_chile)
+                    
+                    if 'hora_salida' in df.columns:
+                        df['hora_salida'] = pd.to_datetime(df['hora_salida'], utc=True).dt.tz_convert(tz_chile)
+                        df['minutos_adentro'] = (df['hora_salida'] - df['fecha_hora']).dt.total_seconds() / 60.0
+                    else:
+                        df['minutos_adentro'] = pd.NA
+                    
+                    df_completados = df[df['estado'] == 'Finalizado'].copy()
+                    rechazados = len(df[df['estado'] == 'Rechazado'])
+                    total_solicitudes = len(df)
+                    tasa_rechazo = (rechazados / total_solicitudes) * 100 if total_solicitudes > 0 else 0
+                    
+                    st.markdown("### ⏱️ Indicadores Clave de Rendimiento (KPIs)")
+                    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+                    kpi1.metric("Total Solicitudes", total_solicitudes)
+                    kpi2.metric("Tasa de Rechazos", f"{tasa_rechazo:.1f}%", "- Objetivo: < 10%", delta_color="inverse")
+                    
+                    if not df_completados.empty and 'minutos_adentro' in df_completados.columns:
+                        tiempo_promedio = df_completados['minutos_adentro'].mean()
+                        kpi3.metric("Tiempo Promedio Atención", f"{tiempo_promedio:.0f} min", "SLA Global: 30 min", delta_color="inverse" if tiempo_promedio > 30 else "normal")
+                        max_tiempo = df_completados['minutos_adentro'].max()
+                        kpi4.metric("Máximo Tiempo Registrado", f"{max_tiempo:.0f} min")
+                    else:
+                        kpi3.metric("Tiempo Promedio Atención", "N/A", "Faltan datos de salida")
+                        kpi4.metric("Máximo Tiempo Registrado", "N/A")
+
                     st.write("")
+                    st.divider()
+
                     col_g1, col_g2 = st.columns(2)
                     with col_g1:
-                        st.markdown("#### 🏢 Visitas por Departamento")
+                        st.markdown("#### 🚦 Tasa de Aprobación vs Rechazo")
+                        if 'estado' in df.columns:
+                            distribucion_estado = df['estado'].value_counts()
+                            st.bar_chart(distribucion_estado, color="#FFD700")
+                        else:
+                            st.info("Aún no hay estados definidos.")
+                            
+                    with col_g2:
+                        st.markdown("#### 🏢 Volumen de Visitas por Departamento")
                         if 'departamento' in df.columns:
                             st.bar_chart(df['departamento'].value_counts())
                         else:
                             st.info("Aún no hay datos de departamentos.")
-                    with col_g2:
-                        st.markdown("#### 👤 Top 10 Visitantes Recurrentes")
-                        if 'rut' in df.columns and 'nombre' in df.columns:
-                            top_v = df.groupby(['rut', 'nombre']).size().reset_index(name='Visitas').sort_values(by='Visitas', ascending=False).head(10)
-                            st.dataframe(top_v, use_container_width=True)
+                    
+                    st.write("")
+                    col_g3, col_g4 = st.columns(2)
+                    
+                    with col_g3:
+                        st.markdown("#### ⏳ Tiempos Promedio por Departamento (Minutos)")
+                        if not df_completados.empty and 'minutos_adentro' in df_completados.columns:
+                            tiempo_depto = df_completados.groupby('departamento')['minutos_adentro'].mean()
+                            st.bar_chart(tiempo_depto)
                         else:
-                            st.info("Aún no hay datos de visitantes.")
+                            st.info("Se requiere marcar salidas ('Finalizado') para calcular tiempos promedios.")
+
+                    with col_g4:
+                        st.markdown("#### 🏆 Extremos de Atención (Visitas Finalizadas)")
+                        if not df_completados.empty and 'minutos_adentro' in df_completados.columns:
+                            df_sorted = df_completados.sort_values(by='minutos_adentro', ascending=False)
+                            
+                            st.caption("🔴 Visitas más largas (Mayor permanencia)")
+                            top_largas = df_sorted[['nombre', 'departamento', 'minutos_adentro']].head(3)
+                            top_largas['minutos_adentro'] = top_largas['minutos_adentro'].apply(lambda x: f"{x:.0f} min")
+                            st.dataframe(top_largas, use_container_width=True, hide_index=True)
+                            
+                            st.caption("🟢 Visitas más veloces (Menor permanencia)")
+                            top_cortas = df_sorted[['nombre', 'departamento', 'minutos_adentro']].tail(3)
+                            top_cortas['minutos_adentro'] = top_cortas['minutos_adentro'].apply(lambda x: f"{x:.0f} min")
+                            st.dataframe(top_cortas, use_container_width=True, hide_index=True)
+                        else:
+                            st.info("Aún no hay visitas finalizadas con hora de salida.")
+                            
                 else:
-                    st.info("No hay datos suficientes para generar reportes aún.")
+                    st.info("No hay datos suficientes para generar reportes aún. Registre visitas y marque salidas.")
