@@ -8,19 +8,24 @@ from firebase_admin import credentials, firestore
 # ==========================================
 # 1. CONFIGURACIÓN VISUAL GENERAL (CON FAVICON)
 # ==========================================
-# Se añade page_icon="🏛️" para el Favicon en la pestaña del navegador
 st.set_page_config(page_title="Control de Acceso | I.M. La Serena", page_icon="🏛️", layout="wide", initial_sidebar_state="expanded")
 
+# CSS Ajustado para móviles: Fuerza textos oscuros en los inputs y etiquetas
 st.markdown("""
     <style>
     .stApp { background-color: #F8F9FA; }
+    
+    /* Forzar color de texto oscuro en etiquetas y campos para evitar el bug del modo oscuro en móviles */
+    label, .stTextInput label, .stSelectbox label, .stTextArea label { color: #333333 !important; font-weight: bold !important; }
+    input, select, textarea { color: #111111 !important; background-color: #FFFFFF !important; }
+    
     .tarjeta-visita {
         background-color: white; padding: 15px; border-radius: 8px; 
         box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px; border-left: 4px solid #FFD700;
     }
     .nombre-visita { font-weight: bold; font-size: 1.1em; color: #333; margin-bottom: 2px;}
     .depto-visita { color: #555; font-size: 0.9em; }
-    .tabla-historico { width: 100%; border-collapse: collapse; background-color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .tabla-historico { width: 100%; border-collapse: collapse; background-color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); color: #333; }
     .tabla-historico th { background-color: #333; color: white; padding: 10px; text-align: left; }
     .tabla-historico td { padding: 10px; border-bottom: 1px solid #ddd; }
     </style>
@@ -78,11 +83,18 @@ if modo_vista == "🖥️ Tótem de Visitas (Público)":
         st.divider()
 
         with st.form("registro_consistorial"):
-            rut = st.text_input("RUT del Visitante", placeholder="Ej: 12.345.678-9")
-            nombre = st.text_input("Nombre Completo")
-            depto = st.selectbox("Departamento de Destino", 
-                                 ["Alcaldía", "Secretaría Municipal", "DIDECO", "Obras (DOM)", "Rentas", "Jurídico", "Control"])
-            motivo = st.text_area("Motivo de la Visita / Oficina de Referencia")
+            # Ajuste de RUT chileno
+            rut = st.text_input("RUT del Visitante (Sin puntos y con guion)", placeholder="Ej: 12345678-9", max_chars=10)
+            nombre = st.text_input("Nombre Completo del Visitante")
+            
+            # Listado de departamentos ampliado
+            depto = st.selectbox("Departamento o Unidad de Destino", [
+                "Alcaldía", "Administración Municipal", "Gabinete", "Oficina de Partes", 
+                "Comunicaciones", "Prensa", "Relaciones Públicas", "Eventos", "Patrocinios",
+                "Secretaría Municipal", "DIDECO", "Obras (DOM)", "Rentas", "Jurídico", "Control"
+            ])
+            
+            motivo = st.text_area("Motivo de la Visita o Funcionario a contactar", max_chars=150)
             
             submit = st.form_submit_button("VALIDAR Y ANUNCIAR LLEGADA", use_container_width=True)
 
@@ -95,19 +107,18 @@ if modo_vista == "🖥️ Tótem de Visitas (Público)":
                                 "motivo": motivo, "fecha_hora": datetime.now(),
                                 "estado": "En Recepción" 
                             })
-                            st.success("✅ **REGISTRO INGRESADO.**")
+                            st.success("✅ **REGISTRO INGRESADO CORRECTAMENTE.**")
                             st.info("🛋️ **Sala de Espera Virtual:** Por favor, tome asiento. Recepción está gestionando su ingreso al edificio.")
                         except Exception as e:
                             st.error(f"Error de sistema: {e}")
                 else:
-                    st.warning("⚠️ Complete todos los campos solicitados.")
+                    st.warning("⚠️ Complete todos los campos solicitados para poder anunciarlo.")
 
 # ==========================================
 # 6. MODO 2: PANEL DE CONTROL (RESTRINGIDO)
 # ==========================================
 elif modo_vista == "🛡️ Panel de Control (Guardia)":
     
-    # --- PANTALLA DE LOGIN SIMULADA ---
     if not st.session_state["autenticado"]:
         st.sidebar.markdown("#### 🔒 Ingreso Operadores")
         usuario = st.sidebar.text_input("Usuario", placeholder="Ej: guardia")
@@ -122,7 +133,6 @@ elif modo_vista == "🛡️ Panel de Control (Guardia)":
         
         st.warning("🔒 **Acceso Restringido.** Por favor, ingrese sus credenciales institucionales en el menú lateral para operar el Panel de Control.")
 
-    # --- PANEL DE CONTROL ACTIVO ---
     else:
         st.sidebar.success(f"✅ Sesión Activa: Guardia IMLS")
         if st.sidebar.button("Cerrar Sesión", use_container_width=True):
@@ -197,9 +207,6 @@ elif modo_vista == "🛡️ Panel de Control (Guardia)":
                     elif estado == "Finalizado":
                         historico_visitas.append(visita)
 
-                # ==========================================
-                # ITINERARIO / HISTÓRICO DEL DÍA
-                # ==========================================
                 st.write("")
                 st.divider()
                 st.markdown("### 📋 Bitácora de Visitas Finalizadas (Histórico)")
