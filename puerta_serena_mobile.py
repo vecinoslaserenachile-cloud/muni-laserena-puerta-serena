@@ -1,15 +1,19 @@
 import streamlit as st
 from datetime import datetime
+import pytz
 import json
 import base64
 import firebase_admin
 from firebase_admin import credentials, firestore
-import pandas as pd # Para el análisis de datos
+import pandas as pd
 
 # ==========================================
-# 1. CONFIGURACIÓN VISUAL GENERAL
+# 1. CONFIGURACIÓN GENERAL Y HORA CHILE
 # ==========================================
 st.set_page_config(page_title="Control de Acceso | I.M. La Serena", page_icon="🏛️", layout="wide", initial_sidebar_state="expanded")
+
+# Forzar la zona horaria oficial de Chile continental
+tz_chile = pytz.timezone('America/Santiago')
 
 st.markdown("""
     <style>
@@ -64,13 +68,13 @@ st.sidebar.markdown("<div style='text-align: center; font-size: 70px; margin-bot
 st.sidebar.markdown("<h3 style='text-align: center;'>Sistema Smart IMLS</h3>", unsafe_allow_html=True)
 
 modo_vista = st.sidebar.radio("Navegación del Sistema", 
-                              ["🖥️ Tótem de Visitas (Público)", "🛡️ Panel de Control (Guardia)", "📊 Reportes Institucionales"])
+                              ["📱 Acceso Ciudadano (QR)", "🛡️ Panel de Guardia", "📊 Reportes Institucionales"])
 st.sidebar.divider()
 
 # ==========================================
-# 5. MODO 1: TÓTEM PÚBLICO
+# 5. MODO 1: TÓTEM PÚBLICO / CELULAR CIUDADANO
 # ==========================================
-if modo_vista == "🖥️ Tótem de Visitas (Público)":
+if modo_vista == "📱 Acceso Ciudadano (QR)":
     col_v1, col_centro, col_v2 = st.columns([1, 2, 1])
     with col_centro:
         st.markdown('<div style="text-align: center; font-size: 50px; margin-bottom: -20px;">🏛️</div>', unsafe_allow_html=True)
@@ -79,7 +83,14 @@ if modo_vista == "🖥️ Tótem de Visitas (Público)":
         st.divider()
 
         with st.form("registro_consistorial"):
-            rut = st.text_input("RUT del Visitante (Sin puntos y con guion)", placeholder="Ej: 12345678-9", max_chars=10)
+            st.info("💡 **Dato de Seguridad:** Tenga su Cédula de Identidad a mano.")
+            
+            col_rut, col_serie = st.columns(2)
+            with col_rut:
+                rut = st.text_input("RUT (Sin puntos y con guion)", placeholder="Ej: 12345678-9", max_chars=10)
+            with col_serie:
+                num_serie = st.text_input("Nº de Documento (Serie)", placeholder="Ej: A12345678", max_chars=15)
+                
             nombre = st.text_input("Nombre Completo")
             depto = st.selectbox("Unidad de Destino", [
                 "Alcaldía", "Administración Municipal", "Gabinete", "Oficina de Partes", 
@@ -87,22 +98,31 @@ if modo_vista == "🖥️ Tótem de Visitas (Público)":
                 "Secretaría Municipal", "DIDECO", "Obras (DOM)", "Rentas", "Jurídico", "Control"
             ])
             motivo = st.text_area("Motivo de la Visita", max_chars=150)
+            
             submit = st.form_submit_button("VALIDAR Y ANUNCIAR LLEGADA", use_container_width=True)
 
             if submit:
-                if db and rut and nombre and motivo:
+                if db and rut and num_serie and nombre and motivo:
                     try:
+                        # Se utiliza la hora exacta de Chile
+                        ahora_chile = datetime.now(tz_chile)
+                        
                         db.collection("bitacora_consistorial").add({
-                            "rut": rut, "nombre": nombre, "departamento": depto,
-                            "motivo": motivo, "fecha_hora": datetime.now(),
+                            "rut": rut, 
+                            "numero_serie": num_serie, # Nuevo campo obligatorio
+                            "nombre": nombre, 
+                            "departamento": depto,
+                            "motivo": motivo, 
+                            "fecha_hora": ahora_chile,
                             "estado": "En Recepción" 
                         })
-                        st.success("✅ **REGISTRO INGRESADO.**")
-                        st.info("🛋️ **Sala de Espera Virtual:** Recepción gestionará su ingreso.")
+                        st.success("✅ **DATOS RECIBIDOS CORRECTAMENTE.**")
+                        # Nuevo mensaje de liberación ciudadana
+                        st.info("⏳ **Vecino/a, estamos gestionando su visita.** Puede ir a dar una vuelta a la plaza o realizar otro trámite mientras tanto. Apenas tengamos el OK de la oficina, le notificaremos la autorización de ingreso por este mismo sistema. Actualice esta pantalla en unos minutos.")
                     except Exception as e:
                         st.error(f"Error: {e}")
                 else:
-                    st.warning("⚠️ Complete todos los campos.")
+                    st.warning("⚠️ Complete todos los campos solicitados, incluyendo el Número de Documento.")
 
 # ==========================================
 # 6. MODO 2 Y 3: PANEL Y REPORTES (CON LOGIN)
@@ -118,21 +138,21 @@ else:
                 st.rerun()
             else:
                 st.sidebar.error("❌ Credenciales incorrectas")
-        st.warning("🔒 Ingrese sus credenciales en el menú lateral.")
+        st.warning("🔒 Ingrese sus credenciales institucionales.")
 
-    elif modo_vista == "🛡️ Panel de Control (Guardia)":
+    elif modo_vista == "🛡️ Panel de Guardia":
         st.sidebar.success("✅ Sesión Activa")
         if st.sidebar.button("Cerrar Sesión"):
             st.session_state["autenticado"] = False
             st.rerun()
 
         col_t, col_b = st.columns([4, 1])
-        col_t.markdown("## 🛡️ Central de Coordinación")
-        if col_b.button("🔄 Actualizar"): st.rerun()
+        col_t.markdown("## 🛡️ Central de Coordinación y Acceso")
+        if col_b.button("🔄 Actualizar Panel"): st.rerun()
         st.divider()
 
         c_esp, c_coo, c_ade, c_rec = st.columns(4)
-        c_esp.markdown("### 🛋️ Recepción")
+        c_esp.markdown("### 🛋️ Solicitudes")
         c_coo.markdown("### ⏳ Coordinando")
         c_ade.markdown("### ✅ Adentro")
         c_rec.markdown("### 🚫 Rechazado")
@@ -144,9 +164,21 @@ else:
                 v = doc.to_dict()
                 id_d = doc.id
                 est = v.get("estado", "En Recepción")
-                h_in = v["fecha_hora"].strftime("%H:%M") if "fecha_hora" in v else "--:--"
                 
-                t_html = f'<div class="tarjeta-visita"><b>{v.get("nombre","")}</b><br><small>🏢 {v.get("departamento","")} | 🕒 {h_in}</small></div>'
+                # Manejo de zona horaria al leer la base de datos
+                if "fecha_hora" in v:
+                    try:
+                        hora_lectura = v["fecha_hora"].astimezone(tz_chile)
+                        h_in = hora_lectura.strftime("%H:%M")
+                    except:
+                        h_in = v["fecha_hora"].strftime("%H:%M")
+                else:
+                    h_in = "--:--"
+                
+                # Se muestra si el doc fue verificado en la tarjeta
+                doc_verificado = f"📄 Doc: {v.get('numero_serie', 'N/A')}"
+                
+                t_html = f'<div class="tarjeta-visita"><b>{v.get("nombre","")}</b><br><small>🏢 {v.get("departamento","")} | 🕒 {h_in}</small><br><small style="color:green;">{doc_verificado}</small></div>'
                 
                 if est == "En Recepción":
                     with c_esp:
@@ -162,15 +194,21 @@ else:
                     with c_ade:
                         st.markdown(t_html, unsafe_allow_html=True)
                         if st.button("Salida", key=f"s_{id_d}"):
-                            db.collection("bitacora_consistorial").document(id_d).update({"estado":"Finalizado", "hora_salida": datetime.now()}); st.rerun()
-                elif est == "Finalizado": historico.append(v)
+                            db.collection("bitacora_consistorial").document(id_d).update({"estado":"Finalizado", "hora_salida": datetime.now(tz_chile)}); st.rerun()
+                elif est == "Finalizado": 
+                    historico.append(v)
             
             st.divider()
             st.markdown("### 📋 Bitácora de Salidas")
-            if historico: st.table(pd.DataFrame(historico)[["nombre", "rut", "departamento", "fecha_hora"]].rename(columns={"fecha_hora":"Hora Ingreso"}))
+            if historico: 
+                df_historico = pd.DataFrame(historico)
+                # Formatear columnas para mostrar
+                df_mostrar = df_historico[["nombre", "rut", "numero_serie", "departamento", "fecha_hora"]].copy()
+                df_mostrar = df_mostrar.rename(columns={"numero_serie": "Nº Doc", "fecha_hora":"Hora Ingreso"})
+                st.dataframe(df_mostrar, use_container_width=True)
 
     # ==========================================
-    # 7. MODO 3: REPORTES (NUEVA PESTAÑA)
+    # 7. MODO 3: REPORTES
     # ==========================================
     elif modo_vista == "📊 Reportes Institucionales":
         st.markdown("## 📊 Inteligencia de Datos: Flujo de Ciudadanos")
@@ -183,37 +221,19 @@ else:
                 
                 if lista_v:
                     df = pd.DataFrame(lista_v)
-                    df['fecha_hora'] = pd.to_datetime(df['fecha_hora'])
-                    
-                    # KPIs Superiores
                     kpi1, kpi2, kpi3 = st.columns(3)
                     kpi1.metric("Total Visitas Acumuladas", len(df))
                     kpi2.metric("Departamentos Atendiendo", df['departamento'].nunique())
                     kpi3.metric("Ciudadanos Únicos (RUT)", df['rut'].nunique())
                     
                     st.write("")
-                    
                     col_g1, col_g2 = st.columns(2)
-                    
                     with col_g1:
                         st.markdown("#### 🏢 Visitas por Departamento")
-                        # Gráfico de barras de departamentos
-                        conteo_depto = df['departamento'].value_counts()
-                        st.bar_chart(conteo_depto)
-                        st.caption("Distribución del flujo de personas por oficina municipal.")
-                    
+                        st.bar_chart(df['departamento'].value_counts())
                     with col_g2:
                         st.markdown("#### 👤 Top 10 Visitantes Recurrentes")
-                        # Frecuencia por persona (RUT/Nombre)
-                        top_visitantes = df.groupby(['rut', 'nombre']).size().reset_index(name='Visitas').sort_values(by='Visitas', ascending=False).head(10)
-                        st.dataframe(top_visitantes, use_container_width=True)
-                        st.caption("Identificación de ciudadanos con alta frecuencia de asistencia presencial.")
-
-                    st.divider()
-                    st.markdown("#### 📈 Tendencia de Ingresos")
-                    # Agrupar por fecha para ver tendencia
-                    df['fecha'] = df['fecha_hora'].dt.date
-                    tendencia = df.groupby('fecha').size()
-                    st.line_chart(tendencia)
+                        top_v = df.groupby(['rut', 'nombre']).size().reset_index(name='Visitas').sort_values(by='Visitas', ascending=False).head(10)
+                        st.dataframe(top_v, use_container_width=True)
                 else:
                     st.info("No hay datos suficientes para generar reportes aún.")
