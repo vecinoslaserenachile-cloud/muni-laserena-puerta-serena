@@ -1,77 +1,86 @@
 import streamlit as st
 from datetime import datetime
+import json
+import base64
 import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ==========================================
-# 0. CONEXIÓN BLINDADA (Austeridad Inteligente)
+# PROTOCOLO DE SEGURIDAD INSTITUCIONAL
 # ==========================================
 @st.cache_resource
-def iniciar_conexion():
+def iniciar_sistema_seguridad():
     if not firebase_admin._apps:
         try:
-            # Extraemos los secretos y limpiamos caracteres invisibles
-            cred_dict = dict(st.secrets["firebase"])
-            # Limpieza quirúrgica de la llave
-            raw_key = cred_dict["private_key"].strip().replace("\t", "").replace(" ", "")
-            cred_dict["private_key"] = raw_key.replace("\\n", "\n")
+            # Decodificación de la Clave Maestra enviada por el Director
+            b64_data = st.secrets["CLAVE_MAESTRA"]
+            # El decodificador ignora cualquier deformación del servidor
+            json_data = base64.b64decode(b64_data).decode('utf-8-sig')
+            
+            # Limpieza de posibles etiquetas TOML si se incluyeron en el encode
+            if "private_key =" in json_data:
+                # Si el encode incluyó formato TOML, lo procesamos como tal
+                import tomllib
+                cred_dict = tomllib.loads(json_data)["firebase"]
+                cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+            else:
+                # Si es JSON puro
+                cred_dict = json.loads(json_data)
             
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
             return firestore.client()
         except Exception as e:
-            st.error(f"Error de seguridad: {e}")
+            st.error(f"FALLA CRÍTICA DE ACCESO: {e}")
             return None
     return firestore.client()
 
-db = iniciar_conexion()
+db = iniciar_sistema_seguridad()
 
 # ==========================================
-# 1. INTERFAZ MUNICIPAL
+# INTERFAZ EDIFICIO CONSISTORIAL IMLS
 # ==========================================
-st.set_page_config(page_title="Puerta Serena Smart", layout="centered")
+st.set_page_config(page_title="Seguridad de Acceso | I.M. La Serena", layout="centered")
 
-# Estética Golden Hour
 st.markdown("""
     <style>
     .stApp { background-color: #FFFFFF; }
     div.stButton > button {
-        background-color: #FFD700 !important; color: #333333 !important;
-        font-weight: bold; border-radius: 10px; border: none;
+        background-color: #FFD700 !important; color: #000000 !important;
+        font-weight: bold; border-radius: 4px; border: 1px solid #B89600;
+        height: 3.5em; width: 100%;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Avatar de Resiliencia
-st.markdown('<div style="width:100px;height:100px;background-color:#FFD700;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:40px;margin:auto;">🟡</div>', unsafe_allow_html=True)
-
-st.markdown("<h1 style='text-align: center;'>Puerta Serena</h1>", unsafe_allow_html=True)
-st.markdown("<h3 style='text-align: center; color: #666666;'>Modernización Real · Costo $0</h3>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center;'>Seguridad al Acceso Recinto Municipal</h2>", unsafe_allow_html=True)
+st.markdown("<h4 style='text-align: center; color: #666666;'>Edificio Consistorial IMLS</h4>", unsafe_allow_html=True)
 st.divider()
 
 # ==========================================
-# 2. FORMULARIO DE ACCESO
+# REGISTRO DE CONTROL DE INGRESO
 # ==========================================
-rut = st.text_input("Ingresa tu RUT para anunciarte")
-
-if rut:
+with st.form("registro_consistorial"):
+    rut = st.text_input("RUT del Visitante", placeholder="Ej: 12.345.678-9")
     nombre = st.text_input("Nombre Completo")
-    depto = st.selectbox("Departamento de destino", ["Alcaldía", "DIDECO", "Obras (DOM)", "Rentas"])
-    motivo = st.text_input("Motivo de la atención")
+    depto = st.selectbox("Departamento de Destino", 
+                         ["Alcaldía", "Secretaría Municipal", "DIDECO", "Obras (DOM)", "Rentas", "Jurídico", "Control"])
+    motivo = st.text_area("Motivo de la Visita")
+    
+    submit = st.form_submit_button("VALIDAR Y REGISTRAR INGRESO")
 
-    if st.button("🟡 Solicitar Acceso Smart"):
-        if db and nombre and motivo:
-            with st.spinner("Registrando en SmartLS..."):
-                try:
-                    db.collection("historico_visitas").add({
-                        "rut": rut, "nombre": nombre, "departamento": depto,
-                        "motivo": motivo, "fecha": datetime.now()
-                    })
-                    st.success(f"¡Listo! Notificado a {depto}.")
-                except Exception as e:
-                    st.error(f"Error de registro: {e}")
+    if submit:
+        if db and rut and nombre and motivo:
+            try:
+                db.collection("bitacora_consistorial").add({
+                    "rut": rut, "nombre": nombre, "departamento": depto,
+                    "motivo": motivo, "fecha_hora": datetime.now()
+                })
+                st.success(f"REGISTRO EXITOSO: Visitante autorizado para {depto}.")
+            except Exception as e:
+                st.error(f"ERROR DE SISTEMA: {e}")
         else:
-            st.warning("Director, complete todos los campos para el registro.")
+            st.warning("ATENCIÓN: Debe completar el protocolo de seguridad para autorizar el ingreso.")
 
 st.divider()
-st.caption("© 2026 Ilustre Municipalidad de La Serena. | Austeridad Inteligente.")
+st.caption("Sistema de Trazabilidad Institucional | Ilustre Municipalidad de La Serena")
