@@ -6,33 +6,29 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ==========================================
-# 0. CONEXIÓN BLINDADA (Austeridad Inteligente)
+# 0. CONEXIÓN BLINDADA (Limpieza de Byte 9)
 # ==========================================
 @st.cache_resource
 def iniciar_conexion():
     if not firebase_admin._apps:
         try:
-            # Extraemos los secretos oficiales
             cred_dict = dict(st.secrets["firebase"])
-            
-            # --- LIMPIEZA QUIRÚRGICA DE CARACTERES ---
-            # Eliminamos espacios, tabulaciones y saltos de línea basura
-            limpia_key = cred_dict["private_key"].strip().replace("\t", "").replace(" ", "")
-            # Reconstruimos los saltos de línea legítimos del certificado
-            cred_dict["private_key"] = limpia_key.replace("\\n", "\n").replace("-----BEGINPRIVATEKEY-----", "-----BEGIN PRIVATE KEY-----").replace("-----ENDPRIVATEKEY-----", "-----END PRIVATE KEY-----")
+            # Limpieza quirúrgica: eliminamos tabulaciones y espacios accidentales
+            limpia_key = cred_dict["private_key"].replace("\t", "").replace(" ", "")
+            cred_dict["private_key"] = limpia_key.replace("\\n", "\n")
             
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
             return firestore.client()
         except Exception as e:
-            st.error(f"Error en llave de seguridad: {e}")
+            st.error(f"Error de seguridad: {e}")
             return None
     return firestore.client()
 
 db = iniciar_conexion()
 
 # ==========================================
-# 1. ESTÉTICA "GOLDEN HOUR" MUNICIPAL
+# 1. CONFIGURACIÓN VISUAL MUNICIPAL
 # ==========================================
 st.set_page_config(page_title="Puerta Serena Smart", page_icon="🚪", layout="centered")
 
@@ -42,13 +38,12 @@ st.markdown(f"""
     .stApp {{ background-color: #FFFFFF; color: #333333; }}
     div.stButton > button:first-child {{
         background-color: {primary_color}; border: none; border-radius: 10px; font-weight: bold;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }}
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. ANFITRIÓN SERENITO (Modo Resiliencia)
+# 2. ENTORNO VISUAL
 # ==========================================
 try:
     st.image("serenito_anfitrion.png", width=150)
@@ -61,9 +56,9 @@ st.markdown("<h3 style='text-align: center; color: #555555;'>Modernización Real
 st.divider()
 
 # ==========================================
-# 3. REGISTRO DE TRAZABILIDAD CÍVICA
+# 3. REGISTRO DE TRAZABILIDAD
 # ==========================================
-rut_vecino = st.text_input("Ingresa tu RUT para anunciarte")
+rut_vecino = st.text_input("Ingresa tu RUT para anunciarte", key="rut_input")
 
 if rut_vecino:
     nombre_vecino = st.text_input("Nombre Completo")
@@ -72,18 +67,18 @@ if rut_vecino:
 
     if st.button("🚪 Solicitar Acceso Smart"):
         if db and motivo_visita and nombre_vecino:
-            with st.spinner("Registrando visita en SmartLS..."):
-                datos_visita = {
+            with st.spinner("Registrando visita..."):
+                datos = {
                     "rut": rut_vecino, "nombre": nombre_vecino, "departamento": depto_destino,
-                    "motivo": motivo_visita, "fecha_ingreso": datetime.now(), "estado": "En Recepción"
+                    "motivo": motivo_visita, "fecha_ingreso": datetime.now()
                 }
                 try:
-                    db.collection("historico_visitas").add(datos_visita)
-                    st.success(f"¡Listo! Tu visita a {depto_destino} ha sido notificada.")
+                    db.collection("historico_visitas").add(datos)
+                    st.success(f"¡Listo! Tu visita a {depto_destino} ha sido registrada.")
                 except Exception as e:
-                    st.error(f"Error de respaldo en la nube: {e}")
+                    st.error(f"Error al guardar: {e}")
         else:
-            st.warning("Director, asegúrese de completar todos los campos para el registro.")
+            st.warning("Director, asegúrese de completar todos los campos.")
 
 st.divider()
-st.caption("© 2026 Ilustre Municipalidad de La Serena. | Administración Alcaldesa Daniela Norambuena.")
+st.caption("© 2026 Ilustre Municipalidad de La Serena. | Austeridad Inteligente.")
