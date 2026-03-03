@@ -103,24 +103,36 @@ if modo_vista == "📱 Acceso Ciudadano (QR)":
 
             if submit:
                 if db and rut and num_serie and nombre and motivo:
-                    try:
-                        # Se utiliza la hora exacta de Chile
-                        ahora_chile = datetime.now(tz_chile)
-                        
-                        db.collection("bitacora_consistorial").add({
-                            "rut": rut, 
-                            "numero_serie": num_serie, # Nuevo campo obligatorio
-                            "nombre": nombre, 
-                            "departamento": depto,
-                            "motivo": motivo, 
-                            "fecha_hora": ahora_chile,
-                            "estado": "En Recepción" 
-                        })
-                        st.success("✅ **DATOS RECIBIDOS CORRECTAMENTE.**")
-                        # Nuevo mensaje de liberación ciudadana
-                        st.info("⏳ **Vecino/a, estamos gestionando su visita.** Puede ir a dar una vuelta a la plaza o realizar otro trámite mientras tanto. Apenas tengamos el OK de la oficina, le notificaremos la autorización de ingreso por este mismo sistema. Actualice esta pantalla en unos minutos.")
-                    except Exception as e:
-                        st.error(f"Error: {e}")
+                    with st.spinner("Anunciando su llegada a recepción..."):
+                        try:
+                            ahora_chile = datetime.now(tz_chile)
+                            
+                            db.collection("bitacora_consistorial").add({
+                                "rut": rut, 
+                                "numero_serie": num_serie,
+                                "nombre": nombre, 
+                                "departamento": depto,
+                                "motivo": motivo, 
+                                "fecha_hora": ahora_chile,
+                                "estado": "En Recepción" 
+                            })
+                            
+                            # LA GRAN NOTIFICACIÓN VISUAL RECUPERADA
+                            mensaje_gigante = """
+                            <div style="background-color: #F0F8FF; padding: 40px; border-radius: 15px; border: 3px solid #FFD700; text-align: center; box-shadow: 0 8px 16px rgba(0,0,0,0.2); margin-top: 20px;">
+                                <div style="font-size: 80px; margin-bottom: 10px;">🙋‍♂️</div>
+                                <h2 style="color: #003366; font-size: 34px; margin-bottom: 25px;">¡Registro Exitoso!</h2>
+                                <p style="font-size: 26px; color: #333; line-height: 1.5; font-weight: 500;">
+                                    Vecino/a, estamos gestionando su visita. Por favor, ¿puede esperar algunos momentos? Será notificado por mientras.<br><br>
+                                    Puede contemplar nuestra hermosa Plaza de Armas o realizar algún trámite rápido.<br><br>
+                                    <b style="color: #D32F2F; font-size: 28px;">Pero esté muy atento a nuestro aviso. ¡Muchas gracias!</b>
+                                </p>
+                            </div>
+                            """
+                            st.markdown(mensaje_gigante, unsafe_allow_html=True)
+                            
+                        except Exception as e:
+                            st.error(f"Error: {e}")
                 else:
                     st.warning("⚠️ Complete todos los campos solicitados, incluyendo el Número de Documento.")
 
@@ -165,7 +177,6 @@ else:
                 id_d = doc.id
                 est = v.get("estado", "En Recepción")
                 
-                # Manejo de zona horaria al leer la base de datos
                 if "fecha_hora" in v:
                     try:
                         hora_lectura = v["fecha_hora"].astimezone(tz_chile)
@@ -175,7 +186,6 @@ else:
                 else:
                     h_in = "--:--"
                 
-                # Se muestra si el doc fue verificado en la tarjeta
                 doc_verificado = f"📄 Doc: {v.get('numero_serie', 'N/A')}"
                 
                 t_html = f'<div class="tarjeta-visita"><b>{v.get("nombre","")}</b><br><small>🏢 {v.get("departamento","")} | 🕒 {h_in}</small><br><small style="color:green;">{doc_verificado}</small></div>'
@@ -183,18 +193,30 @@ else:
                 if est == "En Recepción":
                     with c_esp:
                         st.markdown(t_html, unsafe_allow_html=True)
-                        if st.button("Coordinar", key=f"c_{id_d}"):
+                        c1, c2 = st.columns(2)
+                        if c1.button("Coordinar", key=f"c_{id_d}"):
                             db.collection("bitacora_consistorial").document(id_d).update({"estado":"Coordinando"}); st.rerun()
+                        # Se reincorpora el botón para rechazar visitas
+                        if c2.button("Rechazar", key=f"r_{id_d}", type="primary"):
+                            db.collection("bitacora_consistorial").document(id_d).update({"estado":"Rechazado"}); st.rerun()
+                            
                 elif est == "Coordinando":
                     with c_coo:
                         st.markdown(t_html, unsafe_allow_html=True)
                         if st.button("Autorizar", key=f"a_{id_d}"):
                             db.collection("bitacora_consistorial").document(id_d).update({"estado":"Adentro"}); st.rerun()
+                            
                 elif est == "Adentro":
                     with c_ade:
                         st.markdown(t_html, unsafe_allow_html=True)
                         if st.button("Salida", key=f"s_{id_d}"):
                             db.collection("bitacora_consistorial").document(id_d).update({"estado":"Finalizado", "hora_salida": datetime.now(tz_chile)}); st.rerun()
+                            
+                elif est == "Rechazado":
+                    with c_rec:
+                        st.markdown(t_html, unsafe_allow_html=True)
+                        st.caption("Agendar cita digital.")
+                        
                 elif est == "Finalizado": 
                     historico.append(v)
             
@@ -202,7 +224,6 @@ else:
             st.markdown("### 📋 Bitácora de Salidas")
             if historico: 
                 df_historico = pd.DataFrame(historico)
-                # Formatear columnas para mostrar
                 df_mostrar = df_historico[["nombre", "rut", "numero_serie", "departamento", "fecha_hora"]].copy()
                 df_mostrar = df_mostrar.rename(columns={"numero_serie": "Nº Doc", "fecha_hora":"Hora Ingreso"})
                 st.dataframe(df_mostrar, use_container_width=True)
