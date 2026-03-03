@@ -12,17 +12,10 @@ from firebase_admin import credentials, firestore
 def iniciar_sistema_seguridad():
     if not firebase_admin._apps:
         try:
-            # 1. Obtenemos el secreto blindado
             b64_data = st.secrets["CLAVE_MAESTRA"]
-            
-            # 2. Decodificación y LIMPIEZA TOTAL de caracteres de control (Byte 9)
-            # El strip() y replace('\t','') eliminan el ruido del servidor
             json_texto = base64.b64decode(b64_data).decode('utf-8-sig').replace('\t', '').strip()
-            
-            # 3. Reconstrucción del diccionario de credenciales
             cred_dict = json.loads(json_texto)
             if "private_key" in cred_dict:
-                # Aseguramos que los saltos de línea sean reales para el formato PEM
                 cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
             
             cred = credentials.Certificate(cred_dict)
@@ -80,18 +73,27 @@ with st.form("registro_consistorial"):
         if db and rut and nombre and motivo:
             with st.spinner("Procesando registro en bitácora digital..."):
                 try:
+                    # Se añade el campo "estado" para el flujo de recepción
                     db.collection("bitacora_consistorial").add({
                         "rut": rut,
                         "nombre": nombre,
                         "departamento": depto,
                         "motivo": motivo,
-                        "fecha_hora": datetime.now()
+                        "fecha_hora": datetime.now(),
+                        "estado": "En coordinación" # El estado inicial ahora es de espera
                     })
-                    st.success(f"REGISTRO EXITOSO: Visitante autorizado para {depto}.")
+                    
+                    # Nuevos mensajes de coordinación institucional
+                    st.success(f"✅ REGISTRO INGRESADO: Su solicitud de atención para {depto} ha sido notificada.")
+                    st.info("⏳ **En proceso de coordinación.** Por favor, tome asiento y espere en recepción mientras gestionamos su atención con el departamento.")
+                    
+                    # Mensaje alternativo para escenarios de agenda llena (comentado como guía visual)
+                    # st.warning("⚠️ Hoy no es posible recibirle en este departamento. Por favor, agende su hora en nuestro sistema digital.")
+                    
                 except Exception as e:
                     st.error(f"ERROR DE SISTEMA: {e}")
         else:
-            st.warning("ATENCIÓN: Debe completar el protocolo de seguridad para autorizar el ingreso.")
+            st.warning("ATENCIÓN: Debe completar el protocolo de seguridad para procesar el ingreso.")
 
 st.divider()
 st.caption("Sistema de Trazabilidad Institucional | Ilustre Municipalidad de La Serena")
