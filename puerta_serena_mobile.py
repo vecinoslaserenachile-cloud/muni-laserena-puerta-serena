@@ -6,7 +6,28 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ==========================================
-# 1. PROTOCOLO DE SEGURIDAD INSTITUCIONAL
+# 1. CONFIGURACIÓN VISUAL GENERAL (CON FAVICON)
+# ==========================================
+# Se añade page_icon="🏛️" para el Favicon en la pestaña del navegador
+st.set_page_config(page_title="Control de Acceso | I.M. La Serena", page_icon="🏛️", layout="wide", initial_sidebar_state="expanded")
+
+st.markdown("""
+    <style>
+    .stApp { background-color: #F8F9FA; }
+    .tarjeta-visita {
+        background-color: white; padding: 15px; border-radius: 8px; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px; border-left: 4px solid #FFD700;
+    }
+    .nombre-visita { font-weight: bold; font-size: 1.1em; color: #333; margin-bottom: 2px;}
+    .depto-visita { color: #555; font-size: 0.9em; }
+    .tabla-historico { width: 100%; border-collapse: collapse; background-color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .tabla-historico th { background-color: #333; color: white; padding: 10px; text-align: left; }
+    .tabla-historico td { padding: 10px; border-bottom: 1px solid #ddd; }
+    </style>
+""", unsafe_allow_html=True)
+
+# ==========================================
+# 2. PROTOCOLO DE SEGURIDAD INSTITUCIONAL
 # ==========================================
 @st.cache_resource
 def iniciar_sistema_seguridad():
@@ -29,29 +50,14 @@ def iniciar_sistema_seguridad():
 db = iniciar_sistema_seguridad()
 
 # ==========================================
-# 2. CONFIGURACIÓN VISUAL GENERAL
+# 3. MANEJO DE SESIÓN DE GUARDIA
 # ==========================================
-st.set_page_config(page_title="Control de Acceso | I.M. La Serena", layout="wide", initial_sidebar_state="expanded")
-
-st.markdown("""
-    <style>
-    .stApp { background-color: #F8F9FA; }
-    .tarjeta-visita {
-        background-color: white; padding: 15px; border-radius: 8px; 
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px; border-left: 4px solid #FFD700;
-    }
-    .nombre-visita { font-weight: bold; font-size: 1.1em; color: #333; margin-bottom: 2px;}
-    .depto-visita { color: #555; font-size: 0.9em; }
-    .tabla-historico { width: 100%; border-collapse: collapse; background-color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .tabla-historico th { background-color: #333; color: white; padding: 10px; text-align: left; }
-    .tabla-historico td { padding: 10px; border-bottom: 1px solid #ddd; }
-    </style>
-""", unsafe_allow_html=True)
+if "autenticado" not in st.session_state:
+    st.session_state["autenticado"] = False
 
 # ==========================================
-# 3. ENRUTADOR Y SEGURIDAD (MENÚ LATERAL)
+# 4. ENRUTADOR Y SEGURIDAD (MENÚ LATERAL)
 # ==========================================
-# Solución al icono roto usando un elemento nativo infalible
 st.sidebar.markdown("<div style='text-align: center; font-size: 70px; margin-bottom: -10px;'>🏛️</div>", unsafe_allow_html=True)
 st.sidebar.markdown("<h3 style='text-align: center;'>Sistema Smart IMLS</h3>", unsafe_allow_html=True)
 
@@ -59,7 +65,7 @@ modo_vista = st.sidebar.radio("Navegación del Sistema", ["🖥️ Tótem de Vis
 st.sidebar.divider()
 
 # ==========================================
-# 4. MODO 1: TÓTEM PÚBLICO (ACCESO DIRECTO POR QR)
+# 5. MODO 1: TÓTEM PÚBLICO (ACCESO DIRECTO POR QR)
 # ==========================================
 if modo_vista == "🖥️ Tótem de Visitas (Público)":
     
@@ -97,18 +103,32 @@ if modo_vista == "🖥️ Tótem de Visitas (Público)":
                     st.warning("⚠️ Complete todos los campos solicitados.")
 
 # ==========================================
-# 5. MODO 2: PANEL DE CONTROL (RESTRINGIDO)
+# 6. MODO 2: PANEL DE CONTROL (RESTRINGIDO)
 # ==========================================
 elif modo_vista == "🛡️ Panel de Control (Guardia)":
     
-    # Sistema de Autenticación
-    st.sidebar.markdown("#### Autenticación Requerida")
-    clave_ingresada = st.sidebar.text_input("Ingrese Clave de Guardia", type="password")
-    
-    if clave_ingresada != "IMLS2026":
-        st.warning("🔒 Acceso Restringido. Ingrese la clave institucional en el menú lateral para operar el panel.")
+    # --- PANTALLA DE LOGIN SIMULADA ---
+    if not st.session_state["autenticado"]:
+        st.sidebar.markdown("#### 🔒 Ingreso Operadores")
+        usuario = st.sidebar.text_input("Usuario", placeholder="Ej: guardia")
+        clave = st.sidebar.text_input("Contraseña", type="password")
+        
+        if st.sidebar.button("Ingresar al Sistema", use_container_width=True):
+            if usuario == "guardia" and clave == "IMLS2026":
+                st.session_state["autenticado"] = True
+                st.rerun()
+            else:
+                st.sidebar.error("❌ Credenciales incorrectas")
+        
+        st.warning("🔒 **Acceso Restringido.** Por favor, ingrese sus credenciales institucionales en el menú lateral para operar el Panel de Control.")
+
+    # --- PANEL DE CONTROL ACTIVO ---
     else:
-        # PANEL ACTIVO
+        st.sidebar.success(f"✅ Sesión Activa: Guardia IMLS")
+        if st.sidebar.button("Cerrar Sesión", use_container_width=True):
+            st.session_state["autenticado"] = False
+            st.rerun()
+
         col_titulo, col_boton = st.columns([4, 1])
         col_titulo.markdown("## 🛡️ Central de Coordinación y Control")
         if col_boton.button("🔄 Actualizar Panel"):
@@ -125,8 +145,6 @@ elif modo_vista == "🛡️ Panel de Control (Guardia)":
         if db:
             try:
                 visitas_ref = db.collection("bitacora_consistorial").order_by("fecha_hora", direction=firestore.Query.DESCENDING).limit(100).stream()
-                
-                # Lista para acumular el histórico
                 historico_visitas = []
 
                 for doc in visitas_ref:
@@ -165,7 +183,6 @@ elif modo_vista == "🛡️ Panel de Control (Guardia)":
                         with col_adentro:
                             st.markdown(tarjeta_html, unsafe_allow_html=True)
                             if st.button("Marcar Salida", key=f"salida_{id_doc}", use_container_width=True):
-                                # Se estampa la hora exacta de salida
                                 db.collection("bitacora_consistorial").document(id_doc).update({
                                     "estado": "Finalizado",
                                     "hora_salida": datetime.now()
@@ -178,7 +195,6 @@ elif modo_vista == "🛡️ Panel de Control (Guardia)":
                             st.caption("Debe agendar cita digital.")
                             
                     elif estado == "Finalizado":
-                        # Guardamos en la lista para mostrar abajo
                         historico_visitas.append(visita)
 
                 # ==========================================
