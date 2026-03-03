@@ -22,7 +22,7 @@ def iniciar_sistema_seguridad():
             firebase_admin.initialize_app(cred)
             return firestore.client()
         except Exception as e:
-            st.error(f"FALLA CRÍTICA EN PROTOCOLO DE SEGURIDAD: {e}")
+            st.error(f"FALLA CRÍTICA EN PROTOCOLO: {e}")
             return None
     return firestore.client()
 
@@ -36,31 +36,33 @@ st.set_page_config(page_title="Control de Acceso | I.M. La Serena", layout="wide
 st.markdown("""
     <style>
     .stApp { background-color: #F8F9FA; }
-    /* Estilo de Tarjetas del Panel */
     .tarjeta-visita {
         background-color: white; padding: 15px; border-radius: 8px; 
         box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px; border-left: 4px solid #FFD700;
     }
     .nombre-visita { font-weight: bold; font-size: 1.1em; color: #333; margin-bottom: 2px;}
     .depto-visita { color: #555; font-size: 0.9em; }
+    .tabla-historico { width: 100%; border-collapse: collapse; background-color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .tabla-historico th { background-color: #333; color: white; padding: 10px; text-align: left; }
+    .tabla-historico td { padding: 10px; border-bottom: 1px solid #ddd; }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. ENRUTADOR (MENÚ LATERAL)
+# 3. ENRUTADOR Y SEGURIDAD (MENÚ LATERAL)
 # ==========================================
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Escudo_de_La_Serena.svg/800px-Escudo_de_La_Serena.svg.png", width=100)
-st.sidebar.markdown("### Sistema Smart IMLS")
+# Solución al icono roto usando un elemento nativo infalible
+st.sidebar.markdown("<div style='text-align: center; font-size: 70px; margin-bottom: -10px;'>🏛️</div>", unsafe_allow_html=True)
+st.sidebar.markdown("<h3 style='text-align: center;'>Sistema Smart IMLS</h3>", unsafe_allow_html=True)
+
 modo_vista = st.sidebar.radio("Navegación del Sistema", ["🖥️ Tótem de Visitas (Público)", "🛡️ Panel de Control (Guardia)"])
 st.sidebar.divider()
-st.sidebar.caption("Sesión Segura: Edificio Consistorial")
 
 # ==========================================
-# 4. MODO 1: TÓTEM PÚBLICO (ACCESO)
+# 4. MODO 1: TÓTEM PÚBLICO (ACCESO DIRECTO POR QR)
 # ==========================================
 if modo_vista == "🖥️ Tótem de Visitas (Público)":
     
-    # Restringimos el ancho para que se vea bien en tablets/tótems
     col_vacia1, col_centro, col_vacia2 = st.columns([1, 2, 1])
     
     with col_centro:
@@ -82,7 +84,6 @@ if modo_vista == "🖥️ Tótem de Visitas (Público)":
                 if db and rut and nombre and motivo:
                     with st.spinner("Anunciando su llegada a recepción..."):
                         try:
-                            # ESTADO INICIAL: "En Recepción"
                             db.collection("bitacora_consistorial").add({
                                 "rut": rut, "nombre": nombre, "departamento": depto,
                                 "motivo": motivo, "fecha_hora": datetime.now(),
@@ -95,76 +96,108 @@ if modo_vista == "🖥️ Tótem de Visitas (Público)":
                 else:
                     st.warning("⚠️ Complete todos los campos solicitados.")
 
-
 # ==========================================
-# 5. MODO 2: PANEL DE CONTROL ANIMADO (GUARDIA)
+# 5. MODO 2: PANEL DE CONTROL (RESTRINGIDO)
 # ==========================================
 elif modo_vista == "🛡️ Panel de Control (Guardia)":
     
-    col_titulo, col_boton = st.columns([4, 1])
-    col_titulo.markdown("## 🛡️ Central de Coordinación y Control")
-    if col_boton.button("🔄 Actualizar Panel"):
-        st.rerun()
-    st.divider()
-
-    # Columnas de la Sala de Espera Virtual (Kanban)
-    col_espera, col_coord, col_adentro, col_rechazo = st.columns(4)
+    # Sistema de Autenticación
+    st.sidebar.markdown("#### Autenticación Requerida")
+    clave_ingresada = st.sidebar.text_input("Ingrese Clave de Guardia", type="password")
     
-    col_espera.markdown("### 🛋️ En Recepción")
-    col_coord.markdown("### ⏳ Coordinando")
-    col_adentro.markdown("### ✅ Adentro")
-    col_rechazo.markdown("### 🚫 Rechazado")
+    if clave_ingresada != "IMLS2026":
+        st.warning("🔒 Acceso Restringido. Ingrese la clave institucional en el menú lateral para operar el panel.")
+    else:
+        # PANEL ACTIVO
+        col_titulo, col_boton = st.columns([4, 1])
+        col_titulo.markdown("## 🛡️ Central de Coordinación y Control")
+        if col_boton.button("🔄 Actualizar Panel"):
+            st.rerun()
+        st.divider()
 
-    if db:
-        try:
-            # Traemos las visitas del día ordenadas por fecha
-            visitas_ref = db.collection("bitacora_consistorial").order_by("fecha_hora", direction=firestore.Query.DESCENDING).limit(30).stream()
-            
-            for doc in visitas_ref:
-                visita = doc.to_dict()
-                id_doc = doc.id
-                estado = visita.get("estado", "En Recepción")
-                hora = visita["fecha_hora"].strftime("%H:%M") if "fecha_hora" in visita else "--:--"
+        col_espera, col_coord, col_adentro, col_rechazo = st.columns(4)
+        
+        col_espera.markdown("### 🛋️ En Recepción")
+        col_coord.markdown("### ⏳ Coordinando")
+        col_adentro.markdown("### ✅ Adentro")
+        col_rechazo.markdown("### 🚫 Rechazado")
+
+        if db:
+            try:
+                visitas_ref = db.collection("bitacora_consistorial").order_by("fecha_hora", direction=firestore.Query.DESCENDING).limit(100).stream()
                 
-                # Diseño de la "tarjeta" de visita
-                tarjeta_html = f"""
-                <div class="tarjeta-visita">
-                    <div class="nombre-visita">{visita.get('nombre', 'Sin Nombre')}</div>
-                    <div class="depto-visita">🏢 {visita.get('departamento', '')} | 🕒 {hora}</div>
-                    <div class="depto-visita" style="margin-top:5px; font-style:italic;">"{visita.get('motivo', '')}"</div>
-                </div>
-                """
+                # Lista para acumular el histórico
+                historico_visitas = []
 
-                # Distribuir tarjetas y botones lógicos según su estado
-                if estado == "En Recepción":
-                    with col_espera:
-                        st.markdown(tarjeta_html, unsafe_allow_html=True)
-                        c1, c2 = st.columns(2)
-                        if c1.button("Coordinar", key=f"coord_{id_doc}", type="secondary", use_container_width=True):
-                            db.collection("bitacora_consistorial").document(id_doc).update({"estado": "Coordinando"})
-                            st.rerun()
-                        if c2.button("Rechazar", key=f"rech_{id_doc}", type="primary", use_container_width=True):
-                            db.collection("bitacora_consistorial").document(id_doc).update({"estado": "Rechazado"})
-                            st.rerun()
+                for doc in visitas_ref:
+                    visita = doc.to_dict()
+                    id_doc = doc.id
+                    estado = visita.get("estado", "En Recepción")
+                    hora_ingreso = visita["fecha_hora"].strftime("%H:%M") if "fecha_hora" in visita else "--:--"
+                    
+                    tarjeta_html = f"""
+                    <div class="tarjeta-visita">
+                        <div class="nombre-visita">{visita.get('nombre', 'Sin Nombre')}</div>
+                        <div class="depto-visita">🏢 {visita.get('departamento', '')} | Ingreso: {hora_ingreso}</div>
+                        <div class="depto-visita" style="margin-top:5px; font-style:italic;">"{visita.get('motivo', '')}"</div>
+                    </div>
+                    """
+
+                    if estado == "En Recepción":
+                        with col_espera:
+                            st.markdown(tarjeta_html, unsafe_allow_html=True)
+                            c1, c2 = st.columns(2)
+                            if c1.button("Coordinar", key=f"coord_{id_doc}", type="secondary", use_container_width=True):
+                                db.collection("bitacora_consistorial").document(id_doc).update({"estado": "Coordinando"})
+                                st.rerun()
+                            if c2.button("Rechazar", key=f"rech_{id_doc}", type="primary", use_container_width=True):
+                                db.collection("bitacora_consistorial").document(id_doc).update({"estado": "Rechazado"})
+                                st.rerun()
+                                
+                    elif estado == "Coordinando":
+                        with col_coord:
+                            st.markdown(tarjeta_html, unsafe_allow_html=True)
+                            if st.button("Autorizar Ingreso", key=f"aut_{id_doc}", type="primary", use_container_width=True):
+                                db.collection("bitacora_consistorial").document(id_doc).update({"estado": "Adentro"})
+                                st.rerun()
+
+                    elif estado == "Adentro":
+                        with col_adentro:
+                            st.markdown(tarjeta_html, unsafe_allow_html=True)
+                            if st.button("Marcar Salida", key=f"salida_{id_doc}", use_container_width=True):
+                                # Se estampa la hora exacta de salida
+                                db.collection("bitacora_consistorial").document(id_doc).update({
+                                    "estado": "Finalizado",
+                                    "hora_salida": datetime.now()
+                                })
+                                st.rerun()
+
+                    elif estado == "Rechazado":
+                        with col_rechazo:
+                            st.markdown(tarjeta_html, unsafe_allow_html=True)
+                            st.caption("Debe agendar cita digital.")
                             
-                elif estado == "Coordinando":
-                    with col_coord:
-                        st.markdown(tarjeta_html, unsafe_allow_html=True)
-                        if st.button("Autorizar Ingreso", key=f"aut_{id_doc}", type="primary", use_container_width=True):
-                            db.collection("bitacora_consistorial").document(id_doc).update({"estado": "Adentro"})
-                            st.rerun()
+                    elif estado == "Finalizado":
+                        # Guardamos en la lista para mostrar abajo
+                        historico_visitas.append(visita)
 
-                elif estado == "Adentro":
-                    with col_adentro:
-                        st.markdown(tarjeta_html, unsafe_allow_html=True)
-                        if st.button("Marcar Salida", key=f"salida_{id_doc}", use_container_width=True):
-                            db.collection("bitacora_consistorial").document(id_doc).update({"estado": "Finalizado"})
-                            st.rerun()
+                # ==========================================
+                # ITINERARIO / HISTÓRICO DEL DÍA
+                # ==========================================
+                st.write("")
+                st.divider()
+                st.markdown("### 📋 Bitácora de Visitas Finalizadas (Histórico)")
+                
+                if historico_visitas:
+                    tabla_html = "<table class='tabla-historico'><tr><th>Nombre Visitante</th><th>RUT</th><th>Departamento</th><th>Hora Ingreso</th><th>Hora Salida</th></tr>"
+                    for v in historico_visitas:
+                        h_in = v["fecha_hora"].strftime("%H:%M") if "fecha_hora" in v else "--:--"
+                        h_out = v["hora_salida"].strftime("%H:%M") if "hora_salida" in v else "Sin registro"
+                        tabla_html += f"<tr><td>{v.get('nombre','')}</td><td>{v.get('rut','')}</td><td>{v.get('departamento','')}</td><td>{h_in}</td><td>{h_out}</td></tr>"
+                    tabla_html += "</table>"
+                    st.markdown(tabla_html, unsafe_allow_html=True)
+                else:
+                    st.info("Aún no hay visitas finalizadas en la jornada.")
 
-                elif estado == "Rechazado":
-                    with col_rechazo:
-                        st.markdown(tarjeta_html, unsafe_allow_html=True)
-                        st.caption("Debe agendar cita digital.")
-
-        except Exception as e:
-            st.error(f"Error al cargar el panel: {e}")
+            except Exception as e:
+                st.error(f"Error al cargar el panel: {e}")
