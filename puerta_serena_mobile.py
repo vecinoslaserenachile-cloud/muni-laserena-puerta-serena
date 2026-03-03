@@ -2,6 +2,40 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
+import os
+import json
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# ==========================================
+# 0. CONEXIÓN SEGURA A LA BASE DE DATOS MUNICIPAL
+# ==========================================
+# st.cache_resource evita que Firebase se conecte 100 veces si entran 100 vecinos a la vez
+@st.cache_resource
+def iniciar_conexion_db():
+    if not firebase_admin._apps:
+        # Streamlit lee los secretos de forma distinta según dónde se aloje
+        try:
+            # Si usas Streamlit Cloud secrets
+            firebase_secret = st.secrets["FIREBASE_KEY"]
+        except:
+            # Si usas GitHub Actions/Local
+            firebase_secret = os.environ.get('FIREBASE_KEY')
+        
+        if firebase_secret:
+            try:
+                cred_dict = json.loads(firebase_secret)
+                cred = credentials.Certificate(cred_dict)
+                firebase_admin.initialize_app(cred)
+                print("Conexión exitosa a SmartLS")
+            except Exception as e:
+                st.error(f"Error en credenciales: {e}")
+        else:
+            st.warning("⚠️ Modo de prueba: Llave de base de datos no detectada.")
+    
+    return firestore.client()
+
+db = iniciar_conexion_db()
 
 # ==========================================
 # 1. CONFIGURACIÓN ESTRATÉGICA Y VISUAL
@@ -43,7 +77,7 @@ st.markdown(f"""
         transition: all 0.3s ease;
     }}
     div.stButton > button:first-child:hover {{
-        background-color: #ECC000; # Un tono más oscuro para hover
+        background-color: #ECC000;
         color: #000000;
         transform: translateY(-2px);
     }}
@@ -64,13 +98,10 @@ st.markdown(f"""
 # ==========================================
 
 # Placeholder para Imagen de Serenito Anfitrión (3D Vinilo texture)
-# INSTRUCCIÓN: Subir el render 'serenito_anfitrion.png' al mismo directorio
 try:
-    # Usamos una imagen local si existe, sino un placeholder
     serenito_img = "serenito_anfitrion.png"
     st.image(serenito_img, width=150, caption="", output_format="PNG")
 except FileNotFoundError:
-    # Placeholder visual mientras el equipo sube el render real
     st.markdown(f'<div style="width:150px;height:150px;background-color:{primary_color};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:40px;margin:auto;">🟡</div>', unsafe_allow_html=True)
     st.caption("*[Insertar render 3D Serenito Anfitrión (Textura Vinilo)]*")
 
@@ -88,7 +119,6 @@ with st.container():
     st.markdown("##### 1. Identifícate")
     rut_ingresado = st.text_input("Ingresa tu RUT (Ej: 12345678-9)", placeholder="12345678-9", help="Para trazabilidad y seguridad in-house.")
 
-# Simulamos base de datos histórica para autocompletado (En producción: Lee Google Sheets)
 visitas_historicas = {
     "12345678-9": {"nombre": "Juan Pérez", "telefono": "+56912345678", "categoria": "Vecino / Dirigente"},
     "8765432-1": {"nombre": "Pedro González (Seremi Vivienda)", "telefono": "+56987654321", "categoria": "Autoridad / Gobierno"}
@@ -98,8 +128,6 @@ visita_datos = {}
 
 if rut_ingresado:
     st.divider()
-    
-    # Lógica de Enrolamiento Inteligente
     if rut_ingresado in visitas_historicas:
         visita_datos = visitas_historicas[rut_ingresado]
         st.success(f"¡Bienvenido de vuelta, {visita_datos['nombre']}!")
@@ -120,7 +148,6 @@ if rut_ingresado and visita_datos.get('nombre') and visita_datos.get('telefono')
     st.divider()
     st.markdown("##### 2. ¿A quién vienes a visitar?")
     
-    # Datos simulados de la estructura municipal (En producción: Lee Google Sheets)
     estructura_muni = {
         "DIDECO": ["Director DIDECO", "Subdirector Social", "Ficha Protección Social"],
         "Obras (DOM)": ["Director de Obras", "Edificación", "Licitaciones"],
@@ -135,29 +162,39 @@ if rut_ingresado and visita_datos.get('nombre') and visita_datos.get('telefono')
         motivo = st.text_input("Motivo breve de la visita (Ej: Consulta de patente, reunión agendada)")
 
     # ==========================================
-    # 5. ACCIÓN Y DISPARO DE ALERTAS
+    # 5. ACCIÓN Y DISPARO DE ALERTAS (AHORA SÍ GUARDA EN FIREBASE)
     # ==========================================
     st.divider()
     submit_btn = st.button("🚪 Solicitar Acceso Smart")
 
     if submit_btn:
         if funcionario and motivo:
-            # Simulamos el guardado de datos y el disparo de la Cadena de Vínculos
             with st.spinner(f"Anunciando tu visita a {funcionario} en {departamento}..."):
-                time.sleep(1.5) # Simulación de delay de API
                 
-                # Registro exitoso
-                timestamp = datetime.now().strftime("%H:%M:%S")
-                st.success(f"¡Listo, {visita_datos['nombre']}! Tu visita ha sido notificada instantáneamente.")
+                timestamp_actual = datetime.now()
                 
-                # Feedback para el vecino (Reducción de ansiedad)
-                st.info(f"El staff de {funcionario} y la recepción ya saben que estás aquí. Por favor, avanza al pórtico de acceso. Registro exitoso a las {timestamp}.")
-                
-                # Nota Estratégica para el equipo (No visible en producción)
-                # st.write(f"*DEVELOPER NOTE: Disparar Email/Webhook a staff de {funcionario} y actualizar Dashboard de Guardia.*")
-                
-                # Resetear formulario (opcional, redirigir a landing de RDMLS)
-                # st.experimental_rerun()
+                # Armamos el "paquete" de datos para guardar
+                datos_para_db = {
+                    "rut": rut_ingresado,
+                    "nombre_vecino": visita_datos.get('nombre', 'Sin nombre'),
+                    "telefono": visita_datos.get('telefono', 'Sin teléfono'),
+                    "categoria": visita_datos.get('categoria', 'No especificada'),
+                    "departamento_destino": departamento,
+                    "funcionario_destino": funcionario,
+                    "motivo_visita": motivo,
+                    "fecha_ingreso": timestamp_actual,
+                    "estado_visita": "En Recepción"
+                }
+
+                try:
+                    # ¡AQUÍ ESTÁ LA MAGIA! Guardamos en la colección "historico_visitas"
+                    db.collection("historico_visitas").add(datos_para_db)
+                    
+                    st.success(f"¡Listo, {visita_datos['nombre']}! Tu visita ha sido notificada instantáneamente a nuestra base de datos.")
+                    st.info(f"El staff de {funcionario} y la recepción ya saben que estás aquí. Registro exitoso a las {timestamp_actual.strftime('%H:%M:%S')}.")
+                except Exception as e:
+                    st.error(f"Ocurrió un error al registrar la visita en el sistema: {e}")
+                    
         else:
             st.error("Por favor, selecciona a quién vienes a visitar y el motivo brevemente para poder anunciarte.")
 
@@ -165,7 +202,7 @@ if rut_ingresado and visita_datos.get('nombre') and visita_datos.get('telefono')
 # 6. FOOTER INSTITUCIONAL ($0 COSTO)
 # ==========================================
 st.divider()
-st.caption(f"""
+st.caption("""
     © 2024 Ilustre Municipalidad de La Serena. | Administración Alcaldesa Daniela Norambuena. |
     Tecnología Smart City In-House (Austeridad Inteligente). | $0 Costo de Inversión en Software.
 """)
