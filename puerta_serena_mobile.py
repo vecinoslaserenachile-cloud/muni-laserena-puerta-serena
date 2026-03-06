@@ -3,15 +3,15 @@ from datetime import datetime
 import pytz
 import json
 import base64
-import random
 import firebase_admin
 from firebase_admin import credentials, firestore
 import pandas as pd
+import numpy as np
 
 # ==========================================
 # 1. CONFIGURACIÓN GENERAL Y HORA CHILE
 # ==========================================
-st.set_page_config(page_title="Control de Acceso | I.M. La Serena", page_icon="🏛️", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Control Acceso Visitas | IMLS", page_icon="🏛️", layout="wide", initial_sidebar_state="expanded")
 
 tz_chile = pytz.timezone('America/Santiago')
 
@@ -26,14 +26,20 @@ st.markdown("""
     }
     .nombre-visita { font-weight: bold; font-size: 1.1em; color: #333; margin-bottom: 2px;}
     .depto-visita { color: #555; font-size: 0.9em; }
-    .tabla-historico { width: 100%; border-collapse: collapse; background-color: white; color: #333; }
-    .tabla-historico th { background-color: #333; color: white; padding: 10px; text-align: left; }
-    .tabla-historico td { padding: 10px; border-bottom: 1px solid #ddd; }
+    .kpi-card { background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; border-bottom: 3px solid #2B6CB0; }
     </style>
 """, unsafe_allow_html=True)
 
+RECINTOS_IMLS = [
+    "Edificio Consistorial (Prat 451)", "Edificio O'Higgins / Ex CCU (Balmaceda)",
+    "Delegación Municipal Las Compañías", "Delegación Municipal La Antena",
+    "Delegación Municipal La Pampa", "Delegación Municipal Centro",
+    "Delegación Municipal Avenida del Mar", "Delegación Municipal Rural",
+    "Dirección de Tránsito", "Juzgados de Policía Local", "Centro Comunitario / Coliseo Monumental"
+]
+
 # ==========================================
-# 2. PROTOCOLO DE SEGURIDAD INSTITUCIONAL
+# 2. PROTOCOLO DE SEGURIDAD (CONEXIÓN BD)
 # ==========================================
 @st.cache_resource
 def iniciar_sistema_seguridad():
@@ -44,7 +50,6 @@ def iniciar_sistema_seguridad():
             cred_dict = json.loads(json_texto)
             if "private_key" in cred_dict:
                 cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
-            
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
             return firestore.client()
@@ -58,116 +63,106 @@ db = iniciar_sistema_seguridad()
 # ==========================================
 # 3. MANEJO DE SESIÓN
 # ==========================================
-if "autenticado" not in st.session_state:
-    st.session_state["autenticado"] = False
+if "autenticado" not in st.session_state: st.session_state["autenticado"] = False
+if "mi_visita_id" not in st.session_state: st.session_state["mi_visita_id"] = None
 
 # ==========================================
 # 4. ENRUTADOR (MENÚ LATERAL)
 # ==========================================
 st.sidebar.markdown("<div style='text-align: center; font-size: 70px; margin-bottom: -10px;'>🏛️</div>", unsafe_allow_html=True)
-st.sidebar.markdown("<h3 style='text-align: center;'>Sistema Smart IMLS</h3>", unsafe_allow_html=True)
+st.sidebar.markdown("<h3 style='text-align: center; font-size: 1.3em;'>Control Accesos IMLS</h3>", unsafe_allow_html=True)
 
 modo_vista = st.sidebar.radio("Navegación del Sistema", 
-                              ["📱 Acceso Ciudadano (QR)", "🛡️ Panel de Guardia", "📊 Reportes Institucionales"])
+                              ["📱 Acceso Ciudadano (QR)", "🛡️ Panel de Guardia", "📊 Big Data & Inteligencia"])
 st.sidebar.divider()
 
 # ==========================================
-# 5. MODO 1: TÓTEM PÚBLICO / CELULAR CIUDADANO
+# 5. MODO 1: TÓTEM / CAPTURA ENRIQUECIDA
 # ==========================================
 if modo_vista == "📱 Acceso Ciudadano (QR)":
     col_v1, col_centro, col_v2 = st.columns([1, 2, 1])
     with col_centro:
         st.markdown('<div style="text-align: center; font-size: 50px; margin-bottom: -20px;">🏛️</div>', unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align: center; color: #333;'>Registro de Visitas</h2>", unsafe_allow_html=True)
-        st.markdown("<h5 style='text-align: center; color: #666; margin-top: -10px;'>Edificio Consistorial IMLS</h5>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #333;'>Control Acceso Visitas</h2>", unsafe_allow_html=True)
+        st.markdown("<h5 style='text-align: center; color: #666; margin-top: -10px;'>Red de Recintos Municipales | I.M. La Serena</h5>", unsafe_allow_html=True)
         st.divider()
 
-        with st.form("registro_consistorial"):
-            st.info("💡 **Dato de Seguridad:** Tenga su Cédula de Identidad a mano.")
-            
-            col_rut, col_serie = st.columns(2)
-            with col_rut:
-                rut = st.text_input("RUT (Sin puntos y con guion)", placeholder="Ej: 12345678-9", max_chars=10)
-            with col_serie:
-                num_serie = st.text_input("Nº de Documento (Serie)", placeholder="Ej: A12345678", max_chars=15)
+        if st.session_state["mi_visita_id"] is None:
+            with st.form("registro_consistorial"):
+                st.info("💡 **Sistema SmartCity:** Por favor, registre sus datos para coordinar su ingreso.")
                 
-            nombre = st.text_input("Nombre Completo")
-            depto = st.selectbox("Unidad de Destino", [
-                "Alcaldía", "Administración Municipal", "Gabinete", "Oficina de Partes", 
-                "Comunicaciones", "Prensa", "Relaciones Públicas", "Eventos", "Patrocinios",
-                "Secretaría Municipal", "DIDECO", "Obras (DOM)", "Rentas", "Jurídico", "Control"
-            ])
-            motivo = st.text_area("Motivo de la Visita", max_chars=150)
-            
-            submit = st.form_submit_button("VALIDAR Y ANUNCIAR LLEGADA", use_container_width=True)
+                # DATOS DUROS
+                col_rut, col_serie = st.columns(2)
+                with col_rut: rut = st.text_input("RUT (Sin puntos y con guion)", max_chars=10)
+                with col_serie: num_serie = st.text_input("Nº de Documento (Serie)", max_chars=15)
+                nombre = st.text_input("Nombre Completo")
+                
+                # DATA ENRIQUECIDA PARA BIG DATA
+                st.markdown("#### 🏢 Perfil del Visitante")
+                col_perfil, col_empresa = st.columns(2)
+                with col_perfil:
+                    perfil_visitante = st.selectbox("Tipo de Visita", ["Ciudadano / Vecino", "Empresa / Proveedor", "Organización Social / ONG", "Institución Pública / Autoridad"])
+                with col_empresa:
+                    empresa_inst = st.text_input("Organización o Empresa (Opcional)", placeholder="Ej: Constructora XYZ, Junta Vecinal N°4")
+                
+                # DESTINO
+                recinto_seleccionado = st.selectbox("Recinto Municipal a Visitar", RECINTOS_IMLS)
+                depto = st.selectbox("Unidad / Departamento de Destino", [
+                    "Alcaldía", "Administración Municipal", "Gabinete", "Oficina de Partes", 
+                    "Comunicaciones / Prensa", "Relaciones Públicas / Eventos", "DIDECO", 
+                    "Obras (DOM)", "Rentas y Patentes", "Jurídico", "Control", 
+                    "Dirección de Tránsito", "Seguridad Ciudadana", "Atención a Público General"
+                ])
+                motivo = st.text_area("Motivo de la Visita", max_chars=150)
+                
+                submit = st.form_submit_button("VALIDAR Y ANUNCIAR LLEGADA", use_container_width=True)
 
-            if submit:
-                if db and rut and num_serie and nombre and motivo:
-                    with st.spinner("Anunciando su llegada a recepción..."):
-                        try:
-                            ahora_chile = datetime.now(tz_chile)
-                            db.collection("bitacora_consistorial").add({
-                                "rut": rut, 
-                                "numero_serie": num_serie,
-                                "nombre": nombre, 
-                                "departamento": depto,
-                                "motivo": motivo, 
-                                "fecha_hora": ahora_chile,
-                                "estado": "En Recepción" 
-                            })
-                            
-                            # MOTOR DE MENSAJES CÁLIDOS Y ROTATIVOS
-                            mensajes_bienvenida = [
-                                # Mensaje 1: Plaza de Armas
-                                """
-                                <div style="background-color: #F0F8FF; padding: 40px; border-radius: 15px; border: 3px solid #FFD700; text-align: center; box-shadow: 0 8px 16px rgba(0,0,0,0.2); margin-top: 20px;">
-                                    <div style="font-size: 80px; margin-bottom: 10px;">🙋‍♂️</div>
-                                    <h2 style="color: #003366; font-size: 34px; margin-bottom: 25px;">¡Registro Exitoso!</h2>
-                                    <p style="font-size: 26px; color: #333; line-height: 1.5; font-weight: 500;">
-                                        Vecino/a, estamos gestionando su atención. Le rogamos esperar unos momentos mientras confirmamos su ingreso con el departamento.<br><br>
-                                        Si dispone de tiempo, le invitamos a contemplar nuestra hermosa <b>Plaza de Armas</b> o realizar algún trámite rápido por el sector.<br><br>
-                                        <b style="color: #D32F2F; font-size: 28px;">Eso sí, ¡le pedimos estar muy atento a nuestro aviso en esta pantalla! Muchas gracias por su visita.</b>
-                                    </p>
-                                </div>
-                                """,
-                                # Mensaje 2: Casco Histórico
-                                """
-                                <div style="background-color: #F9FBE7; padding: 40px; border-radius: 15px; border: 3px solid #8BC34A; text-align: center; box-shadow: 0 8px 16px rgba(0,0,0,0.2); margin-top: 20px;">
-                                    <div style="font-size: 80px; margin-bottom: 10px;">🌳</div>
-                                    <h2 style="color: #33691E; font-size: 34px; margin-bottom: 25px;">¡Su llegada ha sido anunciada!</h2>
-                                    <p style="font-size: 26px; color: #333; line-height: 1.5; font-weight: 500;">
-                                        Nuestro equipo ya está coordinando su atención. La espera podría tomar algunos minutos.<br><br>
-                                        Si gusta, puede aprovechar de recorrer el encanto de nuestro <b>Casco Histórico</b> mientras aguarda.<br><br>
-                                        <b style="color: #D32F2F; font-size: 28px;">Le notificaremos su autorización por este mismo medio. ¡Agradecemos enormemente su paciencia!</b>
-                                    </p>
-                                </div>
-                                """,
-                                # Mensaje 3: Arquitectura / Descanso
-                                """
-                                <div style="background-color: #FFF3E0; padding: 40px; border-radius: 15px; border: 3px solid #FF9800; text-align: center; box-shadow: 0 8px 16px rgba(0,0,0,0.2); margin-top: 20px;">
-                                    <div style="font-size: 80px; margin-bottom: 10px;">🏛️</div>
-                                    <h2 style="color: #E65100; font-size: 34px; margin-bottom: 25px;">¡Datos recibidos correctamente!</h2>
-                                    <p style="font-size: 26px; color: #333; line-height: 1.5; font-weight: 500;">
-                                        Mientras el departamento confirma su disponibilidad, le invitamos a tomar asiento o admirar la bella <b>arquitectura colonial</b> de nuestro recinto.<br><br>
-                                        Nos pondremos en contacto con usted a la brevedad.<br><br>
-                                        <b style="color: #D32F2F; font-size: 28px;">Por favor, manténgase atento a esta pantalla para su confirmación de acceso. ¡Es un gusto recibirle!</b>
-                                    </p>
-                                </div>
-                                """
-                            ]
-                            
-                            mensaje_elegido = random.choice(mensajes_bienvenida)
-                            st.markdown(mensaje_elegido, unsafe_allow_html=True)
-                            
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                else:
-                    st.warning("⚠️ Complete todos los campos solicitados, incluyendo el Número de Documento.")
+                if submit:
+                    if db and rut and nombre and motivo:
+                        with st.spinner("Registrando datos en la red municipal..."):
+                            try:
+                                ahora_chile = datetime.now(tz_chile)
+                                chat_inicial = [{"role": "assistant", "content": f"👋 Hola {nombre.split()[0]}. Soy la Asistencia Virtual IMLS. Notificando a seguridad..."}]
+                                
+                                update_time, doc_ref = db.collection("bitacora_consistorial").add({
+                                    "rut": rut, "numero_serie": num_serie, "nombre": nombre, 
+                                    "perfil_visitante": perfil_visitante, "empresa_institucion": empresa_inst,
+                                    "recinto": recinto_seleccionado, "departamento": depto,
+                                    "motivo": motivo, "fecha_hora": ahora_chile, "estado": "En Recepción",
+                                    "chat": chat_inicial
+                                })
+                                st.session_state["mi_visita_id"] = doc_ref.id
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error de conexión: {e}")
+                    else:
+                        st.warning("⚠️ Complete los campos obligatorios (RUT, Nombre y Motivo).")
+
+        else:
+            if db:
+                doc_ref = db.collection("bitacora_consistorial").document(st.session_state["mi_visita_id"])
+                doc_actual = doc_ref.get()
+                if doc_actual.exists:
+                    datos = doc_actual.to_dict()
+                    estado_actual = datos.get("estado", "En Recepción")
+
+                    if estado_actual in ["En Recepción", "Coordinando"]:
+                        st.info("⏳ **En proceso de coordinación.** Aguarde la confirmación de su reunión.")
+                    elif estado_actual == "Adentro":
+                        st.error("🚨 **ACCESO AUTORIZADO:** Tiene 2 minutos para llegar a la oficina.", icon="✅")
+                    elif estado_actual == "Rechazado":
+                        st.error("❌ **ATENCIÓN NO DISPONIBLE:** Agende su visita para otra jornada.")
+                    elif estado_actual == "Finalizado":
+                        st.success("✅ Su visita ha concluido. Gracias por visitar la IMLS.")
+
+                    if st.button("🔄 Actualizar / Finalizar Visita", use_container_width=True):
+                        if estado_actual in ["Rechazado", "Finalizado"]: st.session_state["mi_visita_id"] = None
+                        st.rerun()
 
 # ==========================================
-# 6. MODO 2: PANEL DE GUARDIA (CON LOGIN)
+# 6. MODO 2: PANEL DE GUARDIA (CON TIMESTAMPS EXQUISITOS)
 # ==========================================
-else:
+elif modo_vista == "🛡️ Panel de Guardia":
     if not st.session_state["autenticado"]:
         st.sidebar.markdown("#### 🔒 Ingreso Operadores")
         usuario = st.sidebar.text_input("Usuario")
@@ -178,17 +173,17 @@ else:
                 st.rerun()
             else:
                 st.sidebar.error("❌ Credenciales incorrectas")
-        st.warning("🔒 Ingrese sus credenciales institucionales.")
-
-    elif modo_vista == "🛡️ Panel de Guardia":
+    else:
         st.sidebar.success("✅ Sesión Activa")
         if st.sidebar.button("Cerrar Sesión"):
             st.session_state["autenticado"] = False
             st.rerun()
 
-        col_t, col_b = st.columns([4, 1])
+        col_t, col_b = st.columns([3, 1])
         col_t.markdown("## 🛡️ Central de Coordinación y Acceso")
-        if col_b.button("🔄 Actualizar Panel"): st.rerun()
+        if col_b.button("🔄 Actualizar Panel", use_container_width=True): st.rerun()
+        
+        recinto_filtro = st.selectbox("📍 Filtrar por Recinto", ["TODOS LA SERENA"] + RECINTOS_IMLS)
         st.divider()
 
         c_esp, c_coo, c_ade, c_rec = st.columns(4)
@@ -198,166 +193,142 @@ else:
         c_rec.markdown("### 🚫 Rechazado")
 
         if db:
-            docs = db.collection("bitacora_consistorial").order_by("fecha_hora", direction=firestore.Query.DESCENDING).limit(50).stream()
-            historico = []
+            docs = db.collection("bitacora_consistorial").order_by("fecha_hora", direction=firestore.Query.DESCENDING).limit(100).stream()
             for doc in docs:
                 v = doc.to_dict()
                 id_d = doc.id
                 est = v.get("estado", "En Recepción")
+                recinto_actual = v.get("recinto", "Sin especificar")
                 
-                if "fecha_hora" in v:
-                    try:
-                        hora_lectura = v["fecha_hora"].astimezone(tz_chile)
-                        h_in = hora_lectura.strftime("%H:%M")
-                    except:
-                        h_in = v["fecha_hora"].strftime("%H:%M")
-                else:
-                    h_in = "--:--"
+                if recinto_filtro != "TODOS LA SERENA" and recinto_actual != recinto_filtro: continue
                 
-                doc_verificado = f"📄 Doc: {v.get('numero_serie', 'N/A')}"
-                t_html = f'<div class="tarjeta-visita"><b>{v.get("nombre","")}</b><br><small>🏢 {v.get("departamento","")} | 🕒 {h_in}</small><br><small style="color:green;">{doc_verificado}</small></div>'
+                # Extracción de tags enriquecidos
+                perfil = v.get("perfil_visitante", "Ciudadano")
+                empresa_tag = f"<br><small style='color:#2B6CB0;'>🏢 {v.get('empresa_institucion')}</small>" if v.get("empresa_institucion") else ""
+                
+                try: h_in = v["fecha_hora"].astimezone(tz_chile).strftime("%H:%M")
+                except: h_in = "--:--"
+                
+                t_html = f'<div class="tarjeta-visita"><b>{v.get("nombre","")}</b> <span style="font-size:0.8em; color:gray;">({perfil})</span>{empresa_tag}<br><small>📍 {recinto_actual}</small><br><small>🎯 {v.get("departamento","")} | Ingreso: 🕒 {h_in}</small></div>'
                 
                 if est == "En Recepción":
                     with c_esp:
                         st.markdown(t_html, unsafe_allow_html=True)
-                        c1, c2 = st.columns(2)
-                        if c1.button("Coordinar", key=f"c_{id_d}"):
+                        if st.button("Coordinar", key=f"c_{id_d}"):
                             db.collection("bitacora_consistorial").document(id_d).update({"estado":"Coordinando"}); st.rerun()
-                        if c2.button("Rechazar", key=f"r_{id_d}", type="primary"):
-                            db.collection("bitacora_consistorial").document(id_d).update({"estado":"Rechazado", "hora_salida": datetime.now(tz_chile)}); st.rerun()
-                            
                 elif est == "Coordinando":
                     with c_coo:
                         st.markdown(t_html, unsafe_allow_html=True)
-                        if st.button("Autorizar", key=f"a_{id_d}"):
-                            db.collection("bitacora_consistorial").document(id_d).update({"estado":"Adentro"}); st.rerun()
-                            
+                        c1, c2 = st.columns(2)
+                        # AQUI SE MARCA EL TIMESTAMP DE AUTORIZACIÓN EXACTA
+                        if c1.button("Autorizar", key=f"a_{id_d}", type="primary"):
+                            db.collection("bitacora_consistorial").document(id_d).update({"estado":"Adentro", "hora_autorizacion": datetime.now(tz_chile)}); st.rerun()
+                        if c2.button("Rechazar", key=f"r_{id_d}"):
+                            db.collection("bitacora_consistorial").document(id_d).update({"estado":"Rechazado", "hora_salida": datetime.now(tz_chile)}); st.rerun()
                 elif est == "Adentro":
                     with c_ade:
                         st.markdown(t_html, unsafe_allow_html=True)
-                        if st.button("Salida", key=f"s_{id_d}"):
+                        # AQUI SE MARCA LA SALIDA DEFINITIVA
+                        if st.button("Marcar Salida", key=f"s_{id_d}"):
                             db.collection("bitacora_consistorial").document(id_d).update({"estado":"Finalizado", "hora_salida": datetime.now(tz_chile)}); st.rerun()
-                            
                 elif est == "Rechazado":
-                    with c_rec:
-                        st.markdown(t_html, unsafe_allow_html=True)
-                        st.caption("Agendar cita digital.")
-                        
-                elif est == "Finalizado": 
-                    registro_seguro = {
-                        "nombre": v.get("nombre", "Sin registro"),
-                        "rut": v.get("rut", "Sin registro"),
-                        "numero_serie": v.get("numero_serie", "N/A"),
-                        "departamento": v.get("departamento", "Sin registro"),
-                        "hora_ingreso": h_in
-                    }
-                    historico.append(registro_seguro)
-            
-            st.divider()
-            st.markdown("### 📋 Bitácora de Salidas")
-            if historico: 
-                df_historico = pd.DataFrame(historico)
-                df_mostrar = df_historico[["nombre", "rut", "numero_serie", "departamento", "hora_ingreso"]].copy()
-                df_mostrar = df_mostrar.rename(columns={
-                    "nombre": "Nombre Completo", "rut": "RUT", "numero_serie": "Nº Doc", "departamento": "Destino", "hora_ingreso": "Hora Ingreso"
-                })
-                st.dataframe(df_mostrar, use_container_width=True)
+                    with c_rec: st.markdown(t_html, unsafe_allow_html=True)
 
-    # ==========================================
-    # 7. MODO 3: REPORTES CON INTELIGENCIA (BI)
-    # ==========================================
-    elif modo_vista == "📊 Reportes Institucionales":
-        st.sidebar.success("✅ Sesión Activa")
-        if st.sidebar.button("Cerrar Sesión"):
-            st.session_state["autenticado"] = False
-            st.rerun()
+# ==========================================
+# 7. MODO 3: BIG DATA & INTELIGENCIA (BI ENRIQUECIDO)
+# ==========================================
+elif modo_vista == "📊 Big Data & Inteligencia":
+    st.markdown("## 📊 Centro de Inteligencia y Big Data IMLS")
+    st.markdown("Análisis avanzado del comportamiento de visitas, tiempos de respuesta y mapeo institucional de La Serena.")
+    
+    if db:
+        with st.spinner("Procesando matriz de datos municipales..."):
+            docs = db.collection("bitacora_consistorial").stream()
+            lista_v = [d.to_dict() for d in docs]
             
-        st.markdown("## 📊 Inteligencia de Datos: Flujo de Ciudadanos")
-        st.markdown("Evaluación de atención basada en SLA global (Service Level Agreement) de la administración pública.")
-        st.divider()
-        
-        if db:
-            with st.spinner("Analizando histórico de visitas bajo estándares de Smart City..."):
-                docs = db.collection("bitacora_consistorial").stream()
-                lista_v = [d.to_dict() for d in docs]
+            if lista_v:
+                df = pd.DataFrame(lista_v)
                 
-                if lista_v:
-                    df = pd.DataFrame(lista_v)
+                # Limpieza y preparación de Timestamps
+                if 'fecha_hora' in df.columns: df['fecha_hora'] = pd.to_datetime(df['fecha_hora'], utc=True).dt.tz_convert(tz_chile)
+                if 'hora_autorizacion' in df.columns: df['hora_autorizacion'] = pd.to_datetime(df['hora_autorizacion'], utc=True).dt.tz_convert(tz_chile)
+                if 'hora_salida' in df.columns: df['hora_salida'] = pd.to_datetime(df['hora_salida'], utc=True).dt.tz_convert(tz_chile)
+                
+                # Cálculos de Inteligencia de Tiempos
+                if 'hora_autorizacion' in df.columns and 'fecha_hora' in df.columns:
+                    df['espera_lobby_min'] = (df['hora_autorizacion'] - df['fecha_hora']).dt.total_seconds() / 60.0
+                else: df['espera_lobby_min'] = np.nan
+                
+                if 'hora_salida' in df.columns and 'hora_autorizacion' in df.columns:
+                    df['reunion_efectiva_min'] = (df['hora_salida'] - df['hora_autorizacion']).dt.total_seconds() / 60.0
+                else: df['reunion_efectiva_min'] = np.nan
+                
+                # Extracción de la hora para mapa de calor
+                df['hora_del_dia'] = df['fecha_hora'].dt.hour
+                
+                df_finalizados = df[df['estado'] == 'Finalizado'].copy()
+                
+                # TABS DE NAVEGACIÓN ANALÍTICA
+                tab1, tab2, tab3 = st.tabs(["📈 Visión General y Flujo", "🏢 Inteligencia Organizacional", "⏱️ Rendimiento de Tiempos (SLA)"])
+                
+                with tab1:
+                    st.markdown("### 🚦 Flujo Integral de Recintos")
+                    k1, k2, k3, k4 = st.columns(4)
+                    k1.markdown(f"<div class='kpi-card'><h3>{len(df)}</h3><p>Total Registros Históricos</p></div>", unsafe_allow_html=True)
+                    k2.markdown(f"<div class='kpi-card'><h3>{len(df[df['estado'] == 'Adentro'])}</h3><p>Personas Adentro Ahora</p></div>", unsafe_allow_html=True)
+                    tasa_rec = (len(df[df['estado'] == 'Rechazado']) / len(df)) * 100 if len(df)>0 else 0
+                    k3.markdown(f"<div class='kpi-card'><h3>{tasa_rec:.1f}%</h3><p>Tasa de Rechazo</p></div>", unsafe_allow_html=True)
+                    top_recinto = df['recinto'].mode()[0] if not df['recinto'].empty else "N/A"
+                    k4.markdown(f"<div class='kpi-card'><h3>Top 1</h3><p>{top_recinto}</p></div>", unsafe_allow_html=True)
                     
-                    if 'fecha_hora' in df.columns:
-                        df['fecha_hora'] = pd.to_datetime(df['fecha_hora'], utc=True).dt.tz_convert(tz_chile)
-                    
-                    if 'hora_salida' in df.columns:
-                        df['hora_salida'] = pd.to_datetime(df['hora_salida'], utc=True).dt.tz_convert(tz_chile)
-                        df['minutos_adentro'] = (df['hora_salida'] - df['fecha_hora']).dt.total_seconds() / 60.0
-                    else:
-                        df['minutos_adentro'] = pd.NA
-                    
-                    df_completados = df[df['estado'] == 'Finalizado'].copy()
-                    rechazados = len(df[df['estado'] == 'Rechazado'])
-                    total_solicitudes = len(df)
-                    tasa_rechazo = (rechazados / total_solicitudes) * 100 if total_solicitudes > 0 else 0
-                    
-                    st.markdown("### ⏱️ Indicadores Clave de Rendimiento (KPIs)")
-                    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-                    kpi1.metric("Total Solicitudes", total_solicitudes)
-                    kpi2.metric("Tasa de Rechazos", f"{tasa_rechazo:.1f}%", "- Objetivo: < 10%", delta_color="inverse")
-                    
-                    if not df_completados.empty and 'minutos_adentro' in df_completados.columns:
-                        tiempo_promedio = df_completados['minutos_adentro'].mean()
-                        kpi3.metric("Tiempo Promedio Atención", f"{tiempo_promedio:.0f} min", "SLA Global: 30 min", delta_color="inverse" if tiempo_promedio > 30 else "normal")
-                        max_tiempo = df_completados['minutos_adentro'].max()
-                        kpi4.metric("Máximo Tiempo Registrado", f"{max_tiempo:.0f} min")
-                    else:
-                        kpi3.metric("Tiempo Promedio Atención", "N/A", "Faltan datos de salida")
-                        kpi4.metric("Máximo Tiempo Registrado", "N/A")
-
                     st.write("")
+                    c1, c2 = st.columns([2,1])
+                    with c1:
+                        st.markdown("#### 🔥 Horas Punta de Visitas (Mapa de Demanda)")
+                        flujo_hora = df['hora_del_dia'].value_counts().sort_index()
+                        st.line_chart(flujo_hora)
+                    with c2:
+                        st.markdown("#### 🏢 Tráfico por Recinto")
+                        st.bar_chart(df['recinto'].value_counts(), color="#DD6B20")
+
+                with tab2:
+                    st.markdown("### 🧬 Análisis de Perfil de Visitantes y Relaciones (CRM)")
+                    c3, c4 = st.columns(2)
+                    with c3:
+                        st.markdown("#### Distribución de Perfiles")
+                        if 'perfil_visitante' in df.columns:
+                            st.bar_chart(df['perfil_visitante'].value_counts(), color="#319795")
+                    with c4:
+                        st.markdown("#### 🏢 Top Instituciones / Empresas Frecuentes")
+                        if 'empresa_institucion' in df.columns:
+                            empresas_limpias = df[df['empresa_institucion'].notna() & (df['empresa_institucion'] != "")]
+                            top_empresas = empresas_limpias['empresa_institucion'].value_counts().head(10)
+                            if not top_empresas.empty:
+                                st.dataframe(top_empresas.rename("Visitas Generadas"), use_container_width=True)
+                            else:
+                                st.info("No hay registros de empresas aún.")
+                    
                     st.divider()
+                    st.markdown("#### Demanda por Unidad/Departamento Destino")
+                    st.bar_chart(df['departamento'].value_counts(), color="#805AD5")
 
-                    col_g1, col_g2 = st.columns(2)
-                    with col_g1:
-                        st.markdown("#### 🚦 Tasa de Aprobación vs Rechazo")
-                        if 'estado' in df.columns:
-                            distribucion_estado = df['estado'].value_counts()
-                            st.bar_chart(distribucion_estado, color="#FFD700")
-                        else:
-                            st.info("Aún no hay estados definidos.")
-                            
-                    with col_g2:
-                        st.markdown("#### 🏢 Volumen de Visitas por Departamento")
-                        if 'departamento' in df.columns:
-                            st.bar_chart(df['departamento'].value_counts())
-                        else:
-                            st.info("Aún no hay datos de departamentos.")
+                with tab3:
+                    st.markdown("### ⏱️ Control de SLAs y Eficiencia de Atención")
+                    st.caption("Métricas basadas únicamente en visitas procesadas y finalizadas.")
                     
-                    st.write("")
-                    col_g3, col_g4 = st.columns(2)
-                    
-                    with col_g3:
-                        st.markdown("#### ⏳ Tiempos Promedio por Departamento (Minutos)")
-                        if not df_completados.empty and 'minutos_adentro' in df_completados.columns:
-                            tiempo_depto = df_completados.groupby('departamento')['minutos_adentro'].mean()
-                            st.bar_chart(tiempo_depto)
-                        else:
-                            st.info("Se requiere marcar salidas ('Finalizado') para calcular tiempos promedios.")
-
-                    with col_g4:
-                        st.markdown("#### 🏆 Extremos de Atención (Visitas Finalizadas)")
-                        if not df_completados.empty and 'minutos_adentro' in df_completados.columns:
-                            df_sorted = df_completados.sort_values(by='minutos_adentro', ascending=False)
-                            
-                            st.caption("🔴 Visitas más largas (Mayor permanencia)")
-                            top_largas = df_sorted[['nombre', 'departamento', 'minutos_adentro']].head(3)
-                            top_largas['minutos_adentro'] = top_largas['minutos_adentro'].apply(lambda x: f"{x:.0f} min")
-                            st.dataframe(top_largas, use_container_width=True, hide_index=True)
-                            
-                            st.caption("🟢 Visitas más veloces (Menor permanencia)")
-                            top_cortas = df_sorted[['nombre', 'departamento', 'minutos_adentro']].tail(3)
-                            top_cortas['minutos_adentro'] = top_cortas['minutos_adentro'].apply(lambda x: f"{x:.0f} min")
-                            st.dataframe(top_cortas, use_container_width=True, hide_index=True)
-                        else:
-                            st.info("Aún no hay visitas finalizadas con hora de salida.")
-                            
-                else:
-                    st.info("No hay datos suficientes para generar reportes aún. Registre visitas y marque salidas.")
+                    if not df_finalizados.empty and not df_finalizados['espera_lobby_min'].isna().all():
+                        espera_promedio = df_finalizados['espera_lobby_min'].mean()
+                        reunion_promedio = df_finalizados['reunion_efectiva_min'].mean()
+                        
+                        col_sla1, col_sla2 = st.columns(2)
+                        col_sla1.metric("⏳ Promedio de Espera en Lobby", f"{espera_promedio:.1f} minutos", "Recepción a Autorización", delta_color="off")
+                        col_sla2.metric("🤝 Promedio de Reunión Efectiva", f"{reunion_promedio:.1f} minutos", "Autorización a Salida", delta_color="off")
+                        
+                        st.write("")
+                        st.markdown("#### ⌛ Cuellos de botella: Departamentos que más hacen esperar en Lobby")
+                        espera_deptos = df_finalizados.groupby('departamento')['espera_lobby_min'].mean().sort_values(ascending=False)
+                        st.bar_chart(espera_deptos, color="#E53E3E")
+                    else:
+                        st.info("Se requiere procesar ciclos completos de visitas (Autorizar -> Finalizar) para medir la inteligencia de tiempos.")
+            else:
+                st.info("La matriz de Big Data se encenderá cuando ingrese el primer registro en el sistema.")
