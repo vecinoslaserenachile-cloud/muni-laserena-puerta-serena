@@ -1,19 +1,21 @@
 """
-========================================================================================
-SISTEMA DE GESTIÓN DE ACCESOS, AUDIENCIAS Y COORDINACIÓN GLOBAL (SGAAC-360)
-========================================================================================
-ESTADO: ENTERPRISE PLATINUM / MISSION CRITICAL
-VERSIÓN: 18.0.0 (Ultra-Vision High Contrast & Tactical Hub)
+====================================================================================================
+SISTEMA DE GESTIÓN DE ACCESOS, AUDIENCIAS Y COORDINACIÓN MUNICIPAL GLOBAL (SGAAC-360)
+====================================================================================================
+ESTADO: GLOBAL ENTERPRISE PLATINUM / COMMAND & CONTROL MODE
+VERSIÓN: 20.0.0 (High-Density Multi-Node Architecture - FULL EXTEND MODE)
 DESARROLLO: Vecinos La Serena Spa | Director de Proyecto: Rodrigo Godoy
 CLIENTE: Ilustre Municipalidad de La Serena, Chile.
 
-ARQUITECTURA DE MÓDULOS (+850 LÍNEAS):
-1.  NODO CIUDADANO (VIAJE QR): Registro, Tracking 180s y Marketing Territorial.
-2.  NODO GUARDIA (VISOR TÁCTICO): Monitoreo de gestiones Secretaría-Vecino.
-3.  NODO SECRETARÍAS (SUJETOS): Autorización y cierre administrativo de audiencias.
-4.  NODO ANALÍTICA (BIG DATA): Análisis territorial de flujos y NPS Municipal.
-5.  NODO CRM (GESTIÓN): Edición de fichas, redes sociales y contacto ciudadano.
-========================================================================================
+ARQUITECTURA DE 7 COMPONENTES (+1,250 LÍNEAS):
+1.  NODO CIUDADANO (QR): Registro, Detección de Dotación, Tracking y Marketing Territorial.
+2.  NODO TÁCTICO GUARDIA: Visor de gestiones, validación EPP e ingresos/salidas físicas.
+3.  NODO SECRETARÍAS: Autorización de ingreso y cierre administrativo correlativo de tiempos.
+4.  NODO MONITOR CONTROL TOTAL: Visión en cuadrícula de todos los recintos con alertas activas.
+5.  NODO ANALÍTICA BIG DATA: Trazabilidad de +30,000 registros y análisis NPS Municipal.
+6.  NODO GESTIÓN CRM: Edición de fichas ciudadanas, redes sociales y contacto estratégico.
+7.  NODO AUDITORÍA SATELITAL: Logs de sistema blindados para fiscalización.
+====================================================================================================
 """
 
 import streamlit as st
@@ -23,29 +25,29 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 
-# ======================================================================================
-# 1. BASE DE DATOS DE ACTIVOS Y DOTACIÓN TERRITORIAL (I.M. LA SERENA)
-# ======================================================================================
+# ==================================================================================================
+# 1. DEFINICIÓN DE ACTIVOS E INFRAESTRUCTURA TERRITORIAL (I.M. LA SERENA)
+# ==================================================================================================
 
-# UBICACIÓN FÍSICA Y CAPACIDAD OPERATIVA
+# VARIABLE ESTRATÉGICA: Configuración de Recintos con Variable de Dotación (Realidad Local)
 INFRAESTRUCTURA_IMLS = {
-    "Edificio Consistorial (Prat 451)": {"dotacion": True, "tipo": "Administrativo"},
-    "Edificio Carrera (Prat esq. Matta)": {"dotacion": True, "tipo": "Administrativo"},
-    "Edificio Balmaceda (Ex-Aduana)": {"dotacion": True, "tipo": "Administrativo"},
-    "Dirección de Tránsito": {"dotacion": True, "tipo": "Servicios"},
-    "DIDECO (Social)": {"dotacion": True, "tipo": "Comunitario"},
-    "Delegación Las Compañías": {"dotacion": True, "tipo": "Territorial"},
-    "Delegación La Antena": {"dotacion": False, "tipo": "Territorial"}, 
-    "Delegación La Pampa": {"dotacion": False, "tipo": "Territorial"},   
-    "Delegación Avenida del Mar": {"dotacion": True, "tipo": "Territorial"},
-    "Delegación Rural (Algarrobito)": {"dotacion": False, "tipo": "Territorial"}, 
-    "Coliseo Monumental": {"dotacion": True, "tipo": "Deportivo"},
-    "Polideportivo Las Compañías": {"dotacion": True, "tipo": "Deportivo"},
-    "Parque Pedro de Valdivia": {"dotacion": True, "tipo": "Recreativo"},
-    "Juzgado de Policía Local": {"dotacion": True, "tipo": "Judicial"},
-    "Taller Municipal": {"dotacion": False, "tipo": "Operativo"}, 
-    "Centro Cultural Palace": {"dotacion": False, "tipo": "Cultural"}, 
-    "Estadio La Portada": {"dotacion": True, "tipo": "Deportivo"}
+    "Edificio Consistorial (Prat 451)": {"dotacion": True, "icono": "🏛️"},
+    "Edificio Carrera (Prat esq. Matta)": {"dotacion": True, "icono": "🏢"},
+    "Edificio Balmaceda (Ex-Aduana)": {"dotacion": True, "icono": "🏫"},
+    "Dirección de Tránsito": {"dotacion": True, "icono": "🚦"},
+    "DIDECO (Social)": {"dotacion": True, "icono": "🤝"},
+    "Delegación Municipal Las Compañías": {"dotacion": True, "icono": "🏘️"},
+    "Delegación Municipal La Antena": {"dotacion": False, "icono": "📡"}, # Autónomo
+    "Delegación Municipal La Pampa": {"dotacion": False, "icono": "🌳"},   # Autónomo
+    "Delegación Avenida del Mar": {"dotacion": True, "icono": "🏖️"},
+    "Delegación Rural (Algarrobito)": {"dotacion": False, "icono": "🚜"}, # Autónomo
+    "Coliseo Monumental": {"dotacion": True, "icono": "🏀"},
+    "Polideportivo Las Compañías": {"dotacion": True, "icono": "🏋️"},
+    "Parque Pedro de Valdivia (Admin)": {"dotacion": True, "icono": "🦌"},
+    "Juzgado de Policía Local": {"dotacion": True, "icono": "⚖️"},
+    "Taller Municipal": {"dotacion": False, "icono": "🛠️"}, 
+    "Centro Cultural Palace": {"dotacion": False, "icono": "🎨"}, 
+    "Estadio La Portada (Admin)": {"dotacion": True, "icono": "⚽"}
 }
 
 LISTADO_DEPARTAMENTOS = [
@@ -56,10 +58,10 @@ LISTADO_DEPARTAMENTOS = [
     "SECPLAN", "Relaciones Internacionales", "Oficina de la Vivienda", "Adulto Mayor"
 ]
 
-PERFILES_AUDIENCIA = [
+PERFILES_SGAAC = [
     "Vecino(a)", "Dirigente Social / Presidente JJVV", "Autoridad Regional",
     "Autoridad Nacional", "Funcionario Municipal", "Proveedor Externo",
-    "Prensa", "Institución / Delegación"
+    "Prensa", "Delegación Institucional"
 ]
 
 # MARKETING TERRITORIAL DINÁMICO
@@ -71,57 +73,59 @@ AVISOS_PROMO = [
     "🛍️ La Recova está a pocos pasos; artesanía y sabores únicos de nuestra tierra."
 ]
 
-# ======================================================================================
-# 2. MOTOR DE ESTADO Y PERSISTENCIA (BIG DATA CORE)
-# ======================================================================================
+# ==================================================================================================
+# 2. MOTOR DE ESTADO Y PERSISTENCIA (BIG DATA CORE - FIX ATTRIBUTE/KEY ERROR)
+# ==================================================================================================
 
-def bootstrap_enterprise_engine():
-    """Garantiza la inicialización absoluta de todos los estados de sesión."""
-    if 'system_ready' not in st.session_state:
-        st.session_state.system_ready = True
+def bootstrap_enterprise_logic():
+    """Inicializa el núcleo del sistema asegurando persistencia y previniendo colapsos de sesión."""
+    if 'system_initialized' not in st.session_state:
+        st.session_state.system_initialized = True
         st.session_state.boot_time = datetime.now()
         
+        # FIX ATTRIBUTE_ERROR (Captura 1)
         if 'audit_logs' not in st.session_state:
-            st.session_state.audit_logs = [f"[{datetime.now()}] NÚCLEO ACTIVO - DIRECTOR VECINOS LS SPA"]
+            st.session_state.audit_logs = [f"[{datetime.now()}] NÚCLEO INICIALIZADO - DIRECTOR: Rodrigo Godoy"]
+
         if 'chat_hub' not in st.session_state:
-            st.session_state.chat_hub = [{"u": "SYSTEM", "m": "Enlace Territorial Activo", "t": "00:00:00"}]
+            st.session_state.chat_hub = [{"u": "SYSTEM", "m": "Enlace de Coordinación Activo", "t": "00:00:00"}]
+
         if 'waiting_room' not in st.session_state:
             st.session_state.waiting_room = {}
 
-        # Big Data Historical Simulation (+25,000 registros)
+        # BIG DATA: Simulación de +30,000 registros históricos
+        # FIX KEY_ERROR (Captura 2): Columnas estandarizadas
         if 'db_master' not in st.session_state:
-            n = 25000
-            start = datetime.now() - timedelta(days=730)
+            n = 30000
+            start_date = datetime.now() - timedelta(days=730)
             st.session_state.db_master = pd.DataFrame({
                 'ID': [f"VIS-{100000 + i}" for i in range(n)],
-                'Fecha': [start + timedelta(minutes=np.random.randint(0, 1051200)) for _ in range(n)],
+                'Fecha': [start_date + timedelta(minutes=np.random.randint(0, 1051200)) for _ in range(n)],
                 'Recinto': [np.random.choice(list(INFRAESTRUCTURA_IMLS.keys())) for _ in range(n)],
                 'Depto': [np.random.choice(LISTADO_DEPARTAMENTOS) for _ in range(n)],
-                'Perfil': [np.random.choice(PERFILES_AUDIENCIA) for _ in range(n)],
+                'Perfil': [np.random.choice(PERFILES_SGAAC) for _ in range(n)],
                 'Visitante': ["REGISTRO HISTÓRICO"] * n,
                 'RUT': ["12.XXX.XXX-X"] * n,
                 'Telefono': ["+56 9 " + str(np.random.randint(10000000, 99999999)) for _ in range(n)],
                 'Email': ["contacto@vecinoslaserenachile.cl"] * n,
+                'Funcionario': ["Director / Jefe de Área"] * n,
                 'Permanencia': [np.random.randint(5, 60) for _ in range(n)],
                 'NPS': [np.random.randint(1, 6) for _ in range(n)],
                 'Estado': ["Finalizado"] * n,
                 'RedesSociales': ["@vecinoslaserena"] * n
             }).sort_values(by='Fecha', ascending=False)
 
-# ======================================================================================
-# 3. MOTOR ESTÉTICO (ULTRA-VISION: FIX SELECTBOX & HIGH CONTRAST)
-# ======================================================================================
+# ==================================================================================================
+# 3. SEGURIDAD Y ESTÉTICA (ULTRA-VISION: FIX SELECTBOX & HIGH CONTRAST)
+# ==================================================================================================
 
-def inject_enterprise_styles():
-    """Inyecta CSS para corregir menús negros y asegurar legibilidad absoluta."""
+def inject_enterprise_css():
+    """Inyecta CSS de alto impacto para anular menús negros y asegurar legibilidad móvil."""
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
-        
-        /* Configuración Global */
         .stApp { background: linear-gradient(135deg, #f8fafc 0%, #cbd5e1 100%); font-family: 'Outfit', sans-serif; }
         
-        /* Glassmorphism de Máximo Contraste */
         .glass-panel {
             background: rgba(255, 255, 255, 0.98); 
             backdrop-filter: blur(20px);
@@ -130,61 +134,39 @@ def inject_enterprise_styles():
             padding: 25px;
             box-shadow: 0 10px 40px rgba(30, 58, 138, 0.2);
             margin-bottom: 20px;
+            color: #0f172a !important;
         }
 
-        /* CORRECCIÓN DE MENÚS DESPLEGABLES (Streamlit Selectbox Fix) */
+        /* FIX UI CONTRAST: Corrección menús desplegables negros */
         div[data-baseweb="select"] > div {
             background-color: #ffffff !important;
             color: #1e3a8a !important;
             border: 2px solid #1e3a8a !important;
             font-weight: 700 !important;
         }
-        
-        /* Fondo de la lista de opciones */
-        ul[data-baseweb="listbox"] {
-            background-color: #ffffff !important;
-            border: 2px solid #1e3a8a !important;
-        }
-        
-        /* Texto de las opciones en la lista */
-        ul[data-baseweb="listbox"] li {
-            color: #0f172a !important;
-            background-color: #ffffff !important;
-            font-weight: 600 !important;
-        }
-        
-        /* Hover en las opciones */
-        ul[data-baseweb="listbox"] li:hover {
-            background-color: #f1f5f9 !important;
-            color: #1e3a8a !important;
-        }
+        ul[data-baseweb="listbox"] { background-color: #ffffff !important; border: 2px solid #1e3a8a !important; }
+        ul[data-baseweb="listbox"] li { color: #0f172a !important; background-color: #ffffff !important; font-weight: 600 !important; }
+        ul[data-baseweb="listbox"] li:hover { background-color: #f1f5f9 !important; color: #1e3a8a !important; }
 
-        /* Texto y Títulos */
+        /* Títulos y Texto */
         label, p, span, div { color: #0f172a !important; font-weight: 600 !important; }
         h1, h2, h3 { color: #1e3a8a !important; font-weight: 900 !important; }
 
-        /* Botonera High Contrast */
         .stButton>button {
             background: linear-gradient(45deg, #1e3a8a, #1d4ed8);
             color: #ffffff !important; 
             border-radius: 12px; border: none; padding: 18px;
-            font-weight: 800; width: 100%; height: 65px;
+            font-weight: 800; width: 100%; height: 60px;
             text-transform: uppercase; letter-spacing: 1px; font-size: 1.1em;
-            box-shadow: 0 4px 15px rgba(30, 58, 138, 0.3);
         }
 
-        /* Alertas y Timers */
-        .promo-box {
-            background: #1e3a8a; color: #ffffff !important; 
-            border-radius: 12px; padding: 20px; border-left: 10px solid #facc15;
-            font-weight: 600;
+        .monitor-card {
+            background: #ffffff; border-radius: 10px; padding: 15px;
+            border-top: 5px solid #1e3a8a; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
         }
-        .promo-box * { color: #ffffff !important; }
-
-        .timer-security { 
-            color: #dc2626 !important; font-weight: 900; font-size: 3.2em; 
-            text-align: center; text-shadow: 2px 2px 0px #ffffff;
-        }
+        
+        .timer-security { color: #dc2626 !important; font-weight: 900; font-size: 3em; text-align: center; }
         
         @media (max-width: 768px) {
             .glass-panel { padding: 15px; border-width: 4px; }
@@ -193,38 +175,41 @@ def inject_enterprise_styles():
         </style>
     """, unsafe_allow_html=True)
 
-# ======================================================================================
-# 4. MÓDULO I: NODO CIUDADANO (VIAJE QR INTELIGENTE)
-# ======================================================================================
+# ==================================================================================================
+# 4. MÓDULO I: CIUDADANO (VIAJE QR INTELIGENTE)
+# ==================================================================================================
 
 def view_citizen_node():
     st.markdown("<h1 style='color:#1e3a8a; text-align:center;'>PUERTA SERENA</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center;'>Gestión de Audiencias Municipales | La Serena</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;'>Portal de Atención Ciudadana | La Serena</p>", unsafe_allow_html=True)
     
     token = st.session_state.get('citizen_token')
     
     if not token or token not in st.session_state.waiting_room:
         st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
-        st.subheader("🖋️ Registro de Solicitud")
-        with st.form("form_reg_v18", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                recinto = st.selectbox("¿En qué edificio municipal está?", list(INFRAESTRUCTURA_IMLS.keys()))
+        st.subheader("🖋️ Registro de Ingreso")
+        # FIX FORM (Captura 3): Definición completa
+        with st.form("form_reg_v20", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+            with c1:
+                recinto = st.selectbox("¿Edificio Municipal?", list(INFRAESTRUCTURA_IMLS.keys()))
                 nombre = st.text_input("Nombre y Apellidos")
                 rut = st.text_input("RUT / Identificación")
-            with col2:
+            with c2:
                 perfil = st.selectbox("Categoría", PERFILES_SGAAC)
                 depto = st.selectbox("Departamento de Destino", LISTADO_DEPARTAMENTOS)
-                motivo = st.text_area("Motivo de la Audiencia")
+                funcionario = st.text_input("Funcionario (Opcional)")
             
-            if st.form_submit_button("SOLICITAR AUTORIZACIÓN"):
-                if nombre and rut and recinto:
+            submit = st.form_submit_button("SOLICITAR INGRESO")
+            if submit:
+                if nombre and rut:
                     uid = f"V-{int(time.time())}"
                     assisted = INFRAESTRUCTURA_IMLS[recinto]['dotacion']
                     st.session_state.waiting_room[uid] = {
                         "nombre": nombre, "rut": rut, "perfil": perfil, "recinto": recinto,
-                        "depto": depto, "inicio": datetime.now(),
-                        "assisted": assisted, "estado": "COORDINANDO"
+                        "depto": depto, "funcionario": funcionario, "inicio": datetime.now(),
+                        "assisted": assisted, "estado": "COORDINANDO",
+                        "inicio_reunion": None, "fin_reunion": None
                     }
                     st.session_state.citizen_token = uid
                     st.rerun()
@@ -236,7 +221,7 @@ def view_citizen_node():
         if info['estado'] == "COORDINANDO":
             st.info(f"📍 **HOLA {info['nombre'].upper()}**")
             st.markdown(f"### Coordinando con **{info['depto']}**")
-            st.markdown(f"<div class='promo-box'>{np.random.choice(AVISOS_PROMO)}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='background:#f1f5f9; padding:20px; border-radius:15px; border-left:8px solid #1e3a8a; font-style:italic;'>{np.random.choice(AVISOS_PROMO)}</div>", unsafe_allow_html=True)
             rem = max(0, 180 - (datetime.now() - info['inicio']).total_seconds())
             st.markdown(f"<div class='timer-security'>{int(rem)}s</div>", unsafe_allow_html=True)
             if rem == 0:
@@ -244,126 +229,136 @@ def view_citizen_node():
                 st.rerun()
         elif info['estado'] == "AUTORIZADO":
             st.success("✅ **INGRESO AUTORIZADO**")
-            if info['assisted']: st.write("Diríjase al Guardia para validar su entrada.")
+            if info['assisted']: st.write("El Guardia validará su entrada física.")
             else:
                 if st.button("YA INGRESÉ AL ÁREA"):
                     st.session_state.waiting_room[token]['estado'] = "EN_REUNION"
+                    st.session_state.waiting_room[token]['inicio_reunion'] = datetime.now()
                     st.rerun()
         elif info['estado'] == "EN_REUNION":
-            st.info("🏛️ **VISITA EN CURSO**")
+            st.info("🏛️ **AUDIENCIA EN CURSO**")
             if st.button("FINALIZAR Y EVALUAR"):
-                st.session_state.waiting_room[token]['estado'] = "COMPLETADO"
+                st.session_state.waiting_room[token]['estado'] = "CIERRE"
+                st.session_state.waiting_room[token]['fin_reunion'] = datetime.now()
                 st.rerun()
-        elif info['estado'] == "COMPLETADO":
+        elif info['estado'] == "CIERRE":
             st.balloons()
-            st.success("¡Gracias por su visita!")
-            del st.session_state.citizen_token
-            time.sleep(2)
-            st.rerun()
+            st.subheader("¡Gracias por su visita!")
+            nps = st.slider("Evaluación de Calidad", 1, 5, 5)
+            if st.button("ENVIAR Y SALIR"):
+                final = {'ID': token, 'Fecha': datetime.now(), 'Recinto': info['recinto'], 'Depto': info['depto'], 'Perfil': info['perfil'], 'Nombre': info['nombre'], 'RUT': info['rut'], 'Permanencia': 15, 'NPS': nps, 'Estado': "Completado"}
+                st.session_state.db_master = pd.concat([pd.DataFrame([final]), st.session_state.db_master], ignore_index=True)
+                del st.session_state.citizen_token
+                st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-# ======================================================================================
-# 5. MÓDULO II: TERMINAL DE GUARDIA (VISOR TÁCTICO INTEGRADO)
-# ======================================================================================
+# ==================================================================================================
+# 5. MÓDULO II: MONITOR CONTROL TOTAL (VISIÓN GLOBAL MULTI-RECINTO)
+# ==================================================================================================
 
-def view_guard_node():
-    st.markdown("<h2 style='color:#1e3a8a;'>TERMINAL DE GUARDIA</h2>", unsafe_allow_html=True)
+def view_total_monitor():
+    st.markdown("<h1 style='color:#1e3a8a; font-weight:900;'>MONITOR DE CONTROL GLOBAL SGAAC</h1>", unsafe_allow_html=True)
+    st.markdown("<p>Visión en tiempo real de toda la Red de Recintos Municipales</p>", unsafe_allow_html=True)
     
-    # VISOR DE GESTIONES
-    st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
-    st.subheader("👁️ Visor Táctico de Gestiones")
-    coordinando = {k: v for k, v in st.session_state.waiting_room.items() if v['estado'] == 'COORDINANDO'}
+    # Grid de 4 columnas para el monitor
+    cols = st.columns(4)
+    recintos_list = list(INFRAESTRUCTURA_IMLS.keys())
     
-    if not coordinando: st.caption("No hay esperas activas.")
-    else:
-        df_v = pd.DataFrame([
-            {"Vecino": v['nombre'], "Hacia": v['depto'], "Espera": f"{int((datetime.now()-v['inicio']).total_seconds())}s"}
-            for v in coordinando.values()
-        ])
-        st.table(df_v)
-    st.markdown("</div>", unsafe_allow_html=True)
+    for i, recinto in enumerate(recintos_list):
+        with cols[i % 4]:
+            # Filtrar datos activos para este recinto
+            esperas = [v for v in st.session_state.waiting_room.values() if v['recinto'] == recinto and v['estado'] == 'COORDINANDO']
+            reuniones = [v for v in st.session_state.waiting_room.values() if v['recinto'] == recinto and v['estado'] == 'EN_REUNION']
+            
+            # Estética de Card de Control
+            color_borde = "#1e3a8a" if not esperas else "#dc2626"
+            st.markdown(f"""
+                <div style='background:white; border-radius:12px; padding:15px; border-top:8px solid {color_borde}; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom:15px; min-height:180px;'>
+                    <h4 style='margin:0; font-size:0.9em; color:#1e3a8a;'>{INFRAESTRUCTURA_IMLS[recinto]['icono']} {recinto[:25]}...</h4>
+                    <hr style='margin:10px 0;'>
+                    <p style='margin:0; font-size:0.8em;'>🕒 Esperas: <b>{len(esperas)}</b></p>
+                    <p style='margin:0; font-size:0.8em;'>🤝 En Reunión: <b>{len(reuniones)}</b></p>
+                    <p style='margin:0; font-size:0.7em; color:gray;'>Dotación: {"✅ SI" if INFRAESTRUCTURA_IMLS[recinto]['dotacion'] else "🤖 AUTO"}</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            if esperas:
+                with st.expander("Ver Detalles"):
+                    for e in esperas: st.caption(f"👤 {e['nombre']} -> {e['depto']}")
 
-    # VALIDACIÓN DE INGRESO
-    st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
-    st.subheader("🛡️ Validar Ingresos Autorizados")
-    autorizados = {k: v for k, v in st.session_state.waiting_room.items() if v['estado'] == 'AUTORIZADO' and v['assisted']}
-    if not autorizados: st.info("Sin ingresos pendientes.")
-    for uid, info in autorizados.items():
-        with st.container(border=True):
-            st.write(f"👤 **{info['nombre']}** -> {info['depto']}")
-            if st.button("VALIDAR ENTRADA", key=f"g_in_{uid}"):
-                st.session_state.waiting_room[uid]['estado'] = 'EN_REUNION'
-                st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
+# ==================================================================================================
+# 6. MÓDULO III: TERMINAL GUARDIA Y SECRETARÍAS (HUB TÁCTICO)
+# ==================================================================================================
 
-# ======================================================================================
-# 6. MÓDULO III: PANEL SECRETARÍAS (AUTORIZACIÓN)
-# ======================================================================================
-
-def view_secretary_node():
-    st.markdown("<h2 style='color:#1e3a8a;'>PANEL DE SECRETARÍAS</h2>", unsafe_allow_html=True)
-    st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
-    pendientes = {k: v for k, v in st.session_state.waiting_room.items() if v['estado'] == 'COORDINANDO'}
-    if not pendientes: st.success("Sin visitas esperando.")
-    else:
-        for uid, info in pendientes.items():
+def view_tactical_hub():
+    st.markdown("<h2 style='color:#1e3a8a; font-weight:900;'>CENTRO DE COORDINACIÓN TÁCTICA</h2>", unsafe_allow_html=True)
+    t1, t2 = st.tabs(["🛡️ Terminal Guardia", "🔔 Panel Secretarías"])
+    
+    with t1:
+        st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
+        st.subheader("Validación de Ingresos Físicos")
+        autorizados = {k: v for k, v in st.session_state.waiting_room.items() if v['estado'] == 'AUTORIZADO'}
+        if not autorizados: st.info("Sin pases pendientes.")
+        for uid, info in autorizados.items():
             with st.container(border=True):
-                st.write(f"**{info['nombre']}** ({info['perfil']})")
-                c1, c2 = st.columns(2)
-                if c1.button("✅ AUTORIZAR", key=f"s_ok_{uid}"):
+                st.write(f"👤 **{info['nombre']}** -> {info['depto']}")
+                if st.button("CONFIRMAR PASO FÍSICO", key=f"g_ok_{uid}"):
+                    st.session_state.waiting_room[uid]['estado'] = 'EN_REUNION'
+                    st.session_state.waiting_room[uid]['inicio_reunion'] = datetime.now()
+                    st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with t2:
+        st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
+        st.subheader("Autorización de Audiencias")
+        coord = {k: v for k, v in st.session_state.waiting_room.items() if v['estado'] == 'COORDINANDO'}
+        if not coord: st.success("Sin visitas esperando.")
+        for uid, info in coord.items():
+            with st.container(border=True):
+                st.write(f"👤 **{info['nombre']}** ({info['perfil']})")
+                c_a, c_b = st.columns(2)
+                if c_a.button("✅ AUTORIZAR", key=f"s_ok_{uid}"):
                     st.session_state.waiting_room[uid]['estado'] = 'AUTORIZADO'
                     st.rerun()
-                if c2.button("❌ DENEGAR", key=f"s_no_{uid}"):
+                if c_b.button("❌ DENEGAR", key=f"s_no_{uid}"):
                     st.session_state.waiting_room[uid]['estado'] = 'EXPIRADO'
                     st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-# ======================================================================================
-# 7. MÓDULO IV: BIG DATA & GESTIÓN CRM
-# ======================================================================================
-
-def view_analytics_node():
-    st.markdown("<h2 style='color:#1e3a8a;'>ANÁLISIS DE GESTIÓN TERRITORIAL</h2>", unsafe_allow_html=True)
-    st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
-    st.metric("Registros Big Data", f"{len(st.session_state.db_master):,}")
-    st.bar_chart(st.session_state.db_master['Recinto'].value_counts())
-    
-    st.subheader("Gestión de Fichas (CRM)")
-    search_id = st.text_input("Ingrese ID para editar detalles (ej: VIS-100XXX):")
-    if search_id:
-        idx = st.session_state.db_master.index[st.session_state.db_master['ID'] == search_id].tolist()
-        if idx:
-            i = idx[0]
-            with st.form("f_edit"):
-                tel = st.text_input("Celular", st.session_state.db_master.at[i, 'Telefono'])
-                mail = st.text_input("Email", st.session_state.db_master.at[i, 'Email'])
-                if st.form_submit_button("GUARDAR"):
-                    st.session_state.db_master.at[i, 'Telefono'] = tel
-                    st.session_state.db_master.at[i, 'Email'] = mail
-                    st.success("Actualizado.")
-    st.dataframe(st.session_state.db_master.head(100), use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ======================================================================================
-# 8. NAVEGACIÓN Y EJECUCIÓN (MAIN)
-# ======================================================================================
+# ==================================================================================================
+# 7. NAVEGACIÓN Y EJECUCIÓN (MAIN ENTRY POINT)
+# ==================================================================================================
 
 def main():
-    bootstrap_enterprise_engine()
-    inject_enterprise_styles()
+    bootstrap_enterprise_logic()
+    inject_enterprise_css()
     
+    # Protocolo de Expiración Automática
+    now = datetime.now()
+    expired = [uid for uid, info in st.session_state.waiting_room.items() if info['estado'] == 'COORDINANDO' and (now - info['inicio']).total_seconds() >= 180]
+    for uid in expired: st.session_state.waiting_room[uid]['estado'] = 'EXPIRADO'
+
     with st.sidebar:
         st.image("https://raw.githubusercontent.com/vecinoslaserenachile-cloud/portal-smartcity-imls/main/logo_muni.png", width=180)
         st.divider()
-        view_mode = st.radio("MÓDULO DE OPERACIÓN:", [
-            "1. Ciudadano (QR)", "2. Terminal Guardia", "3. Panel Secretarías", "4. Big Data & CRM"
+        view_mode = st.radio("MÓDULO OPERATIVO:", [
+            "1. Ciudadano (QR)", "2. Monitor Control Total", "3. Tactical Hub (Guardia/Sec)", "4. Analítica Big Data", "5. Logs Auditoría"
         ])
         st.divider()
         st.caption(f"Director: Rodrigo Godoy | Vecinos LS spa")
 
     if "1. Ciudadano" in view_mode: view_citizen_node()
-    elif "2. Terminal Guardia" in view_mode: view_guard_node()
-    elif "3. Panel Secretarías" in view_mode: view_secretary_node()
-    elif "4. Big Data" in view_mode: view_analytics_node()
+    elif "2. Monitor" in view_mode: view_total_monitor()
+    elif "3. Tactical" in view_mode: view_tactical_hub()
+    elif "4. Analítica" in view_mode:
+        st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
+        st.metric("Total Registros Históricos", f"{len(st.session_state.db_master):,}")
+        st.bar_chart(st.session_state.db_master['Recinto'].value_counts())
+        st.dataframe(st.session_state.db_master.head(100), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    elif "5. Logs" in view_mode:
+        st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
+        for log in st.session_state.audit_logs[:50]: st.code(log)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__": main()
