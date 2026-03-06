@@ -160,7 +160,7 @@ if modo_vista == "📱 Acceso Ciudadano (QR)":
                         st.rerun()
 
 # ==========================================
-# 6. MODO 2: PANEL DE GUARDIA (CON TIMESTAMPS EXQUISITOS)
+# 6. MODO 2: PANEL DE GUARDIA
 # ==========================================
 elif modo_vista == "🛡️ Panel de Guardia":
     if not st.session_state["autenticado"]:
@@ -198,11 +198,11 @@ elif modo_vista == "🛡️ Panel de Guardia":
                 v = doc.to_dict()
                 id_d = doc.id
                 est = v.get("estado", "En Recepción")
-                recinto_actual = v.get("recinto", "Sin especificar")
+                recinto_actual = v.get("recinto", "Registro Antiguo")
                 
-                if recinto_filtro != "TODOS LA SERENA" and recinto_actual != recinto_filtro: continue
+                if recinto_filtro != "TODOS LA SERENA" and recinto_actual != recinto_filtro and recinto_actual != "Registro Antiguo": 
+                    continue
                 
-                # Extracción de tags enriquecidos
                 perfil = v.get("perfil_visitante", "Ciudadano")
                 empresa_tag = f"<br><small style='color:#2B6CB0;'>🏢 {v.get('empresa_institucion')}</small>" if v.get("empresa_institucion") else ""
                 
@@ -220,7 +220,6 @@ elif modo_vista == "🛡️ Panel de Guardia":
                     with c_coo:
                         st.markdown(t_html, unsafe_allow_html=True)
                         c1, c2 = st.columns(2)
-                        # AQUI SE MARCA EL TIMESTAMP DE AUTORIZACIÓN EXACTA
                         if c1.button("Autorizar", key=f"a_{id_d}", type="primary"):
                             db.collection("bitacora_consistorial").document(id_d).update({"estado":"Adentro", "hora_autorizacion": datetime.now(tz_chile)}); st.rerun()
                         if c2.button("Rechazar", key=f"r_{id_d}"):
@@ -228,7 +227,6 @@ elif modo_vista == "🛡️ Panel de Guardia":
                 elif est == "Adentro":
                     with c_ade:
                         st.markdown(t_html, unsafe_allow_html=True)
-                        # AQUI SE MARCA LA SALIDA DEFINITIVA
                         if st.button("Marcar Salida", key=f"s_{id_d}"):
                             db.collection("bitacora_consistorial").document(id_d).update({"estado":"Finalizado", "hora_salida": datetime.now(tz_chile)}); st.rerun()
                 elif est == "Rechazado":
@@ -249,6 +247,14 @@ elif modo_vista == "📊 Big Data & Inteligencia":
             if lista_v:
                 df = pd.DataFrame(lista_v)
                 
+                # --- ESCUDO DE NORMALIZACIÓN DE DATOS ANTIGUOS ---
+                # Previene colapsos si hay registros guardados antes de la actualización
+                columnas_nuevas = ['recinto', 'perfil_visitante', 'empresa_institucion', 'departamento', 'estado', 'nombre']
+                for col in columnas_nuevas:
+                    if col not in df.columns:
+                        df[col] = "Registro Antiguo"
+                # --------------------------------------------------
+                
                 # Limpieza y preparación de Timestamps
                 if 'fecha_hora' in df.columns: df['fecha_hora'] = pd.to_datetime(df['fecha_hora'], utc=True).dt.tz_convert(tz_chile)
                 if 'hora_autorizacion' in df.columns: df['hora_autorizacion'] = pd.to_datetime(df['hora_autorizacion'], utc=True).dt.tz_convert(tz_chile)
@@ -264,7 +270,10 @@ elif modo_vista == "📊 Big Data & Inteligencia":
                 else: df['reunion_efectiva_min'] = np.nan
                 
                 # Extracción de la hora para mapa de calor
-                df['hora_del_dia'] = df['fecha_hora'].dt.hour
+                if 'fecha_hora' in df.columns:
+                    df['hora_del_dia'] = df['fecha_hora'].dt.hour
+                else:
+                    df['hora_del_dia'] = 0
                 
                 df_finalizados = df[df['estado'] == 'Finalizado'].copy()
                 
@@ -278,7 +287,13 @@ elif modo_vista == "📊 Big Data & Inteligencia":
                     k2.markdown(f"<div class='kpi-card'><h3>{len(df[df['estado'] == 'Adentro'])}</h3><p>Personas Adentro Ahora</p></div>", unsafe_allow_html=True)
                     tasa_rec = (len(df[df['estado'] == 'Rechazado']) / len(df)) * 100 if len(df)>0 else 0
                     k3.markdown(f"<div class='kpi-card'><h3>{tasa_rec:.1f}%</h3><p>Tasa de Rechazo</p></div>", unsafe_allow_html=True)
-                    top_recinto = df['recinto'].mode()[0] if not df['recinto'].empty else "N/A"
+                    
+                    # Cálculo seguro del TOP 1
+                    if not df['recinto'].empty and len(df['recinto'].dropna()) > 0:
+                        top_recinto = df['recinto'].mode()[0]
+                    else:
+                        top_recinto = "N/A"
+                    
                     k4.markdown(f"<div class='kpi-card'><h3>Top 1</h3><p>{top_recinto}</p></div>", unsafe_allow_html=True)
                     
                     st.write("")
@@ -296,17 +311,15 @@ elif modo_vista == "📊 Big Data & Inteligencia":
                     c3, c4 = st.columns(2)
                     with c3:
                         st.markdown("#### Distribución de Perfiles")
-                        if 'perfil_visitante' in df.columns:
-                            st.bar_chart(df['perfil_visitante'].value_counts(), color="#319795")
+                        st.bar_chart(df['perfil_visitante'].value_counts(), color="#319795")
                     with c4:
                         st.markdown("#### 🏢 Top Instituciones / Empresas Frecuentes")
-                        if 'empresa_institucion' in df.columns:
-                            empresas_limpias = df[df['empresa_institucion'].notna() & (df['empresa_institucion'] != "")]
-                            top_empresas = empresas_limpias['empresa_institucion'].value_counts().head(10)
-                            if not top_empresas.empty:
-                                st.dataframe(top_empresas.rename("Visitas Generadas"), use_container_width=True)
-                            else:
-                                st.info("No hay registros de empresas aún.")
+                        empresas_limpias = df[(df['empresa_institucion'].notna()) & (df['empresa_institucion'] != "") & (df['empresa_institucion'] != "Registro Antiguo")]
+                        top_empresas = empresas_limpias['empresa_institucion'].value_counts().head(10)
+                        if not top_empresas.empty:
+                            st.dataframe(top_empresas.rename("Visitas Generadas"), use_container_width=True)
+                        else:
+                            st.info("No hay registros de empresas aún.")
                     
                     st.divider()
                     st.markdown("#### Demanda por Unidad/Departamento Destino")
@@ -316,7 +329,7 @@ elif modo_vista == "📊 Big Data & Inteligencia":
                     st.markdown("### ⏱️ Control de SLAs y Eficiencia de Atención")
                     st.caption("Métricas basadas únicamente en visitas procesadas y finalizadas.")
                     
-                    if not df_finalizados.empty and not df_finalizados['espera_lobby_min'].isna().all():
+                    if not df_finalizados.empty and 'espera_lobby_min' in df_finalizados.columns and not df_finalizados['espera_lobby_min'].isna().all():
                         espera_promedio = df_finalizados['espera_lobby_min'].mean()
                         reunion_promedio = df_finalizados['reunion_efectiva_min'].mean()
                         
