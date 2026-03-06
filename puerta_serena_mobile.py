@@ -2,24 +2,29 @@
 ====================================================================================================
 SISTEMA DE GESTIÓN DE ACCESOS, AUDIENCIAS Y COORDINACIÓN MUNICIPAL GLOBAL (SGAAC-360)
 ====================================================================================================
-ESTADO: GLOBAL ENTERPRISE PLATINUM / SMART CITY / FULL PERIMETER SECURITY
-VERSIÓN: 44.0.0 (High-Density Modular Architecture - TOTAL EXTEND MODE +1000 LÍNEAS)
+ESTADO: GLOBAL ENTERPRISE PLATINUM / SMART CITY / GLOBAL SYNC MULTIPLAYER
+VERSIÓN: 46.0.0 (High-Density Modular Architecture - TOTAL EXTEND MODE +1000 LÍNEAS)
 PROPIEDAD: Ilustre Municipalidad de La Serena - Proyecto Smart City Chile
 
-NUEVO FLUJO DE SEGURIDAD PERIMETRAL (DOBLE VALIDACIÓN DE SALIDA):
-- Cierre Administrativo: La Secretaría determina cuándo finaliza la audiencia (cierre de tiempos).
-- Evaluación en Tránsito: El vecino evalúa el servicio mientras camina a la salida.
-- Salida Física: El Guardia valida visualmente la salida y cierra el ciclo de seguridad, 
-  enviando los datos finales a la Big Data.
+====================================================================================================
+NUEVO NÚCLEO DE SINCRONIZACIÓN GLOBAL (V46.0):
+====================================================================================================
+- Global Shared Memory: Se ha implementado `@st.cache_resource` para crear un bloque de memoria 
+  único en el servidor. 
+- Transaccionalidad Real-Time: La "Sala de Espera" (Waiting Room), la Big Data y los Logs 
+  ya no son individuales por dispositivo. Ahora son variables globales. Si un ciudadano en la calle 
+  se registra, el Guardia y el Monitor Central lo ven en milisegundos.
+- Tokenización Local: Solo el token de sesión (`citizen_token`) se mantiene privado en el móvil 
+  del usuario para garantizar que cada vecino solo vea su propia pantalla de seguimiento, 
+  mientras la administración ve el panorama completo.
 
 ARQUITECTURA DE NODOS ESTRATÉGICOS:
-1.  NODO CIUDADANO (QR): UX Senior-Friendly, Escudos HTML fijos, Anti-Dark Mode.
+1.  NODO CIUDADANO (QR): UX Senior-Friendly, Escudos HTML fijos, Anti-Dark Mode, QR Infalible.
 2.  NODO MONITOR CONTROL TOTAL: Pantalla 360° Grid para Command Center (TV 4K).
 3.  NODO TÁCTICO GUARDIA: Validación de entrada, Visor de Coordinación y Control de Salida.
 4.  NODO PANEL SECRETARÍAS: Hub de autorización y Cierre de Audiencias.
 5.  NODO ANALÍTICA & CRM: Trazabilidad de +60,000 registros, edición de fichas y métricas.
-6.  NODO REPORTES: Exportación de matrices de datos a CSV.
-7.  NODO AUDITORÍA SATELITAL: Registro inmutable de transacciones del sistema.
+6.  NODO AUDITORÍA SATELITAL: Registro inmutable de transacciones del sistema.
 ====================================================================================================
 """
 
@@ -38,70 +43,41 @@ st.set_page_config(
 import pandas as pd
 import numpy as np
 import time
+import urllib.parse
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any, Union, NoReturn
 
 # ==================================================================================================
 # 1. CONSTANTES INSTITUCIONALES Y CONFIGURACIÓN TERRITORIAL
 # ==================================================================================================
 
-# RECURSOS GRÁFICOS INSTITUCIONALES
+# RECURSOS GRÁFICOS INSTITUCIONALES (Propiedad Ilustre Municipalidad de La Serena)
 URL_ESCUDO_MUNI = "https://raw.githubusercontent.com/vecinoslaserenachile-cloud/portal-smartcity-imls/main/logo_muni.png"
-URL_APP_DEPLOY = "https://puertaserena.laserena.cl"
-URL_QR_COMPARTIR = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={URL_APP_DEPLOY}"
 
-# INFRAESTRUCTURA DE RED (17 Recintos Estratégicos)
+# QR ENCODING: Enlace real del prototipo con URL Encoding para evitar rotura del código QR
+URL_APP_DEPLOY = "https://puertaserena.streamlit.app"
+URL_ENCODED = urllib.parse.quote(URL_APP_DEPLOY)
+URL_QR_COMPARTIR = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={URL_ENCODED}"
+
+# INFRAESTRUCTURA DE RED (17 Recintos Estratégicos de la IMLS)
 INFRAESTRUCTURA_IMLS = {
-    "Edificio Consistorial (Prat 451)": {
-        "dotacion": True, "icono": "🏛️", "zona": "Casco Histórico", "id": "EC-01", "capacidad": 150
-    },
-    "Edificio Carrera (Prat esq. Matta)": {
-        "dotacion": True, "icono": "🏢", "zona": "Casco Histórico", "id": "EC-02", "capacidad": 120
-    },
-    "Edificio Balmaceda (Ex-Aduana)": {
-        "dotacion": True, "icono": "🏫", "zona": "Casco Histórico", "id": "EB-03", "capacidad": 90
-    },
-    "Dirección de Tránsito": {
-        "dotacion": True, "icono": "🚦", "zona": "Servicios", "id": "DT-04", "capacidad": 200
-    },
-    "DIDECO (Almagro 450)": {
-        "dotacion": True, "icono": "🤝", "zona": "Social", "id": "DI-05", "capacidad": 180
-    },
-    "Delegación Municipal Las Compañías": {
-        "dotacion": True, "icono": "🏘️", "zona": "Norte", "id": "DLC-06", "capacidad": 150
-    },
-    "Delegación Municipal La Antena": {
-        "dotacion": False, "icono": "📡", "zona": "Oriente", "id": "DLA-07", "capacidad": 80
-    },
-    "Delegación Municipal La Pampa": {
-        "dotacion": False, "icono": "🌳", "zona": "Sur", "id": "DLP-08", "capacidad": 80
-    },
-    "Delegación Avenida del Mar": {
-        "dotacion": True, "icono": "🏖️", "zona": "Costa", "id": "DAM-09", "capacidad": 50
-    },
-    "Delegación Rural (Algarrobito)": {
-        "dotacion": False, "icono": "🚜", "zona": "Rural", "id": "DR-10", "capacidad": 40
-    },
-    "Coliseo Monumental": {
-        "dotacion": True, "icono": "🏀", "zona": "Deportes", "id": "CM-11", "capacidad": 500
-    },
-    "Polideportivo Las Compañías": {
-        "dotacion": True, "icono": "🏋️", "zona": "Deportes", "id": "PLC-12", "capacidad": 200
-    },
-    "Parque Pedro de Valdivia (Admin)": {
-        "dotacion": True, "icono": "🦌", "zona": "Recreación", "id": "PPV-13", "capacidad": 100
-    },
-    "Juzgado de Policía Local": {
-        "dotacion": True, "icono": "⚖️", "zona": "Justicia", "id": "JPL-14", "capacidad": 110
-    },
-    "Taller Municipal": {
-        "dotacion": False, "icono": "🛠️", "zona": "Operativa", "id": "TM-15", "capacidad": 60
-    },
-    "Centro Cultural Palace": {
-        "dotacion": False, "icono": "🎨", "zona": "Cultura", "id": "CCP-16", "capacidad": 150
-    },
-    "Estadio La Portada (Admin)": {
-        "dotacion": True, "icono": "⚽", "zona": "Deportes", "id": "ELP-17", "capacidad": 300
-    }
+    "Edificio Consistorial (Prat 451)": {"dotacion": True, "icono": "🏛️", "zona": "Casco Histórico", "id": "EC-01", "capacidad": 150},
+    "Edificio Carrera (Prat esq. Matta)": {"dotacion": True, "icono": "🏢", "zona": "Casco Histórico", "id": "EC-02", "capacidad": 120},
+    "Edificio Balmaceda (Ex-Aduana)": {"dotacion": True, "icono": "🏫", "zona": "Casco Histórico", "id": "EB-03", "capacidad": 90},
+    "Dirección de Tránsito": {"dotacion": True, "icono": "🚦", "zona": "Servicios", "id": "DT-04", "capacidad": 200},
+    "DIDECO (Almagro 450)": {"dotacion": True, "icono": "🤝", "zona": "Social", "id": "DI-05", "capacidad": 180},
+    "Delegación Municipal Las Compañías": {"dotacion": True, "icono": "🏘️", "zona": "Norte", "id": "DLC-06", "capacidad": 150},
+    "Delegación Municipal La Antena": {"dotacion": False, "icono": "📡", "zona": "Oriente", "id": "DLA-07", "capacidad": 80},
+    "Delegación Municipal La Pampa": {"dotacion": False, "icono": "🌳", "zona": "Sur", "id": "DLP-08", "capacidad": 80},
+    "Delegación Avenida del Mar": {"dotacion": True, "icono": "🏖️", "zona": "Costa", "id": "DAM-09", "capacidad": 50},
+    "Delegación Rural (Algarrobito)": {"dotacion": False, "icono": "🚜", "zona": "Rural", "id": "DR-10", "capacidad": 40},
+    "Coliseo Monumental": {"dotacion": True, "icono": "🏀", "zona": "Deportes", "id": "CM-11", "capacidad": 500},
+    "Polideportivo Las Compañías": {"dotacion": True, "icono": "🏋️", "zona": "Deportes", "id": "PLC-12", "capacidad": 200},
+    "Parque Pedro de Valdivia (Admin)": {"dotacion": True, "icono": "🦌", "zona": "Recreación", "id": "PPV-13", "capacidad": 100},
+    "Juzgado de Policía Local": {"dotacion": True, "icono": "⚖️", "zona": "Justicia", "id": "JPL-14", "capacidad": 110},
+    "Taller Municipal": {"dotacion": False, "icono": "🛠️", "zona": "Operativa", "id": "TM-15", "capacidad": 60},
+    "Centro Cultural Palace": {"dotacion": False, "icono": "🎨", "zona": "Cultura", "id": "CCP-16", "capacidad": 150},
+    "Estadio La Portada (Admin)": {"dotacion": True, "icono": "⚽", "zona": "Deportes", "id": "ELP-17", "capacidad": 300}
 }
 
 LISTADO_DEPARTAMENTOS = [
@@ -127,18 +103,15 @@ AVISOS_PROMO = [
 ]
 
 # ==================================================================================================
-# 2. MOTOR CORE DE PERSISTENCIA Y BIG DATA (ANTI-CRASH)
+# 2. MOTOR DE MEMORIA GLOBAL Y PERSISTENCIA (SISTEMA MULTIPLAYER)
 # ==================================================================================================
 
 class EnterpriseDataGenerator:
-    """Clase para la generación masiva de datos Mock y gestión de la persistencia."""
-    
+    """Clase para la generación masiva de datos y gestión de la persistencia."""
     @staticmethod
     def generate_stress_data(num_records: int = 60000) -> pd.DataFrame:
         """Genera un DataFrame histórico masivo para stress-test."""
-        st.cache_data.clear() 
         start_date = datetime.now() - timedelta(days=1095)
-        
         fechas = [start_date + timedelta(minutes=np.random.randint(0, 1576800)) for _ in range(num_records)]
         recintos = np.random.choice(list(INFRAESTRUCTURA_IMLS.keys()), num_records)
         deptos = np.random.choice(LISTADO_DEPARTAMENTOS, num_records)
@@ -161,31 +134,28 @@ class EnterpriseDataGenerator:
         })
         return df.sort_values(by='Fecha', ascending=False)
 
-def bootstrap_enterprise_logic():
-    """Motor de inicialización absoluta de variables de sesión."""
-    if 'system_initialized_v44' not in st.session_state:
-        st.session_state.system_initialized_v44 = True
-        st.session_state.boot_time = datetime.now()
-        
-        if 'audit_logs' not in st.session_state:
-            st.session_state.audit_logs = [f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] SISTEMA SMART CITY: SEGURIDAD PERIMETRAL ACTIVA"]
+@st.cache_resource
+def get_global_memory():
+    """
+    EL NÚCLEO DEL SISTEMA: Este diccionario reside en la memoria del servidor.
+    TODOS los teléfonos y computadoras conectados acceden y modifican ESTE mismo bloque de datos.
+    Esto permite que el guardia vea en tiempo real lo que el ciudadano ingresa en su móvil.
+    """
+    return {
+        'waiting_room': {},
+        'audit_logs': [f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] SISTEMA SMART CITY: SERVIDOR GLOBAL SINCRONIZADO"],
+        'db_master': EnterpriseDataGenerator.generate_stress_data(60000)
+    }
 
-        if 'waiting_room' not in st.session_state:
-            st.session_state.waiting_room = {}
-
-        if 'db_master' not in st.session_state:
-            with st.spinner("Inicializando Motor Big Data Municipal (+60,000 registros)..."):
-                st.session_state.db_master = EnterpriseDataGenerator.generate_stress_data(60000)
-                registrar_auditoria("BIG DATA: Base de datos histórica precargada.")
+# Instanciación de la memoria global
+GLOBAL_MEM = get_global_memory()
 
 def registrar_auditoria(mensaje: str):
-    """Inyecta un log inmutable en el sistema para trazabilidad."""
-    if 'audit_logs' not in st.session_state:
-        st.session_state.audit_logs = []
+    """Inyecta un log inmutable en la memoria global del servidor."""
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    st.session_state.audit_logs.insert(0, f"[{stamp}] {mensaje}")
-    if len(st.session_state.audit_logs) > 2000:
-        st.session_state.audit_logs = st.session_state.audit_logs[:2000]
+    GLOBAL_MEM['audit_logs'].insert(0, f"[{stamp}] {mensaje}")
+    if len(GLOBAL_MEM['audit_logs']) > 2000:
+        GLOBAL_MEM['audit_logs'] = GLOBAL_MEM['audit_logs'][:2000]
 
 # ==================================================================================================
 # 3. MOTOR CSS BLINDADO (ANTI-DARK MODE Y DESTRUCCIÓN DE SIDEBAR)
@@ -193,7 +163,8 @@ def registrar_auditoria(mensaje: str):
 
 def inject_titanium_mobile_css():
     """
-    CSS PURO. Fuerza fondo blanco, letras oscuras y destruye la barra lateral.
+    CSS PURO DE MISIÓN CRÍTICA. 
+    Fuerza fondo blanco, letras oscuras en inputs (Anti-Dark Mode) y destruye la barra lateral.
     """
     st.markdown("""
         <style>
@@ -299,7 +270,7 @@ def inject_titanium_mobile_css():
         }
 
         /* ==========================================================================
-           5. PANELES INSTITUCIONALES Y COMPONENTES
+           5. PANELES INSTITUCIONALES
            ========================================================================== */
         .glass-panel {
             background: #FFFFFF !important; 
@@ -336,7 +307,7 @@ def inject_titanium_mobile_css():
             margin-top: 25px !important;
         }
 
-        /* Botones secundarios (Rojos) para acciones de denegación/cierre */
+        /* Botones secundarios (Rojos) */
         button[kind="secondary"] {
             background: linear-gradient(45deg, #b91c1c, #ef4444) !important;
         }
@@ -391,9 +362,11 @@ def render_smartcity_sovereign_header():
 def view_citizen_node():
     """El punto de contacto principal para el ciudadano."""
     render_smartcity_sovereign_header()
-    token = st.session_state.get('citizen_token_v44')
     
-    if not token or token not in st.session_state.waiting_room:
+    # El token SIEMPRE debe ser local (st.session_state) para que cada teléfono vea su propio estado.
+    token = st.session_state.get('citizen_token_v46')
+    
+    if not token or token not in GLOBAL_MEM['waiting_room']:
         st.markdown("""
             <div class="instruction-box">
                 <h3 style="margin-top:0; color:#1e3a8a !important; font-size:1.6em; font-weight:900;">Estimado Vecino(a):</h3>
@@ -425,15 +398,16 @@ def view_citizen_node():
                     uid = f"V-{int(time.time())}"
                     assisted_flag = INFRAESTRUCTURA_IMLS[recinto_sel]['dotacion']
                     
-                    st.session_state.waiting_room[uid] = {
+                    # INYECCIÓN EN LA MEMORIA GLOBAL DEL SERVIDOR
+                    GLOBAL_MEM['waiting_room'][uid] = {
                         "nombre": nombre_input, "rut": rut_input, "perfil": perfil_sel, 
                         "recinto": recinto_sel, "depto": depto_sel, "motivo": motivo_input,
                         "inicio": datetime.now(), "assisted": assisted_flag,
                         "estado": "COORDINANDO", "inicio_reunion": None, "fin_reunion": None,
                         "nps_temp": 5
                     }
-                    st.session_state.citizen_token_v44 = uid
-                    registrar_auditoria(f"REGISTRO CREADO: {nombre_input} en {recinto_sel}")
+                    st.session_state.citizen_token_v46 = uid
+                    registrar_auditoria(f"NUEVO INGRESO GLOBAL: {nombre_input} en {recinto_sel}")
                     st.rerun()
                 else: 
                     st.error("⚠️ ACCIÓN REQUERIDA: Por favor, escriba su Nombre y RUT.")
@@ -441,12 +415,11 @@ def view_citizen_node():
         
     else:
         # ==========================================
-        # ESTADOS POST-REGISTRO (MÁQUINA DE ESTADOS UX)
+        # LECTURA DEL ESTADO DESDE LA MEMORIA GLOBAL
         # ==========================================
-        info = st.session_state.waiting_room[token]
+        info = GLOBAL_MEM['waiting_room'][token]
         st.markdown("<div class='glass-panel' style='text-align:center;'>", unsafe_allow_html=True)
         
-        # 1. ESPERANDO A SECRETARÍA
         if info['estado'] == "COORDINANDO":
             st.info(f"📍 **HOLA {info['nombre'].upper()}**")
             st.markdown(f"<h3 style='color:#001F3F !important; font-weight:800;'>Avisando a la oficina de **{info['depto']}**...</h3>", unsafe_allow_html=True)
@@ -456,10 +429,9 @@ def view_citizen_node():
             st.markdown(f"<div class='timer-security'>{int(tiempo_restante)}s</div>", unsafe_allow_html=True)
             
             if tiempo_restante == 0:
-                st.session_state.waiting_room[token]['estado'] = "EXPIRADO"
+                GLOBAL_MEM['waiting_room'][token]['estado'] = "EXPIRADO"
                 st.rerun()
                 
-        # 2. SECRETARÍA AUTORIZÓ, ESPERANDO PASAR
         elif info['estado'] == "AUTORIZADO":
             st.success("✅ **INGRESO AUTORIZADO**")
             if info['assisted']: 
@@ -467,17 +439,15 @@ def view_citizen_node():
             else:
                 st.markdown("<h3 style='color:#001F3F !important; font-weight:900; font-size:2.5em;'>¡PASE ADELANTE!</h3>", unsafe_allow_html=True)
                 if st.button("YA INGRESÉ A LA OFICINA"):
-                    st.session_state.waiting_room[token]['estado'] = "EN_REUNION"
-                    st.session_state.waiting_room[token]['inicio_reunion'] = datetime.now()
+                    GLOBAL_MEM['waiting_room'][token]['estado'] = "EN_REUNION"
+                    GLOBAL_MEM['waiting_room'][token]['inicio_reunion'] = datetime.now()
                     st.rerun()
                     
-        # 3. EN REUNIÓN (SECRETARÍA DEBE CERRAR)
         elif info['estado'] == "EN_REUNION":
             st.info("🏛️ **USTED ESTÁ EN REUNIÓN**")
             st.markdown("<h3 style='color:#001F3F !important;'>La Municipalidad cronometra sus atenciones para asegurar la excelencia.</h3>", unsafe_allow_html=True)
             st.markdown("<p style='color:#dc2626 !important; font-weight:800; font-size:1.2em;'>La secretaría finalizará su atención en el sistema cuando termine.</p>", unsafe_allow_html=True)
                 
-        # 4. SECRETARÍA CERRÓ REUNIÓN -> CIUDADANO EVALÚA
         elif info['estado'] == "EVALUACION":
             st.balloons()
             st.markdown("""
@@ -490,20 +460,18 @@ def view_citizen_node():
             nps = st.slider("De 1 a 5 estrellas, ¿Qué tan buena fue su atención?", 1, 5, 5)
             
             if st.button("ENVIAR EVALUACIÓN Y DIRIGIRME A LA SALIDA"):
-                st.session_state.waiting_room[token]['nps_temp'] = nps
-                st.session_state.waiting_room[token]['estado'] = "SALIDA_PENDIENTE"
+                GLOBAL_MEM['waiting_room'][token]['nps_temp'] = nps
+                GLOBAL_MEM['waiting_room'][token]['estado'] = "SALIDA_PENDIENTE"
                 st.rerun()
                 
-        # 5. CIUDADANO EN TRÁNSITO HACIA LA SALIDA (GUARDIA DEBE CONFIRMAR)
         elif info['estado'] == "SALIDA_PENDIENTE":
             st.success("✅ **EVALUACIÓN RECIBIDA**")
             st.markdown("<h3 style='color:#001F3F !important; font-weight:900;'>Por favor, diríjase a la salida.</h3>", unsafe_allow_html=True)
             st.write("El guardia del recinto verificará su retiro para cerrar el ciclo de seguridad.")
             
-            # Opción de auto-cierre si el recinto no tiene guardia
+            # Auto-cierre si el recinto no tiene dotación de guardia
             if not info['assisted']:
                 if st.button("YA SALÍ DEL RECINTO"):
-                    # Auto-guardado en Big Data
                     permanencia = int((info['fin_reunion'] - info['inicio_reunion']).total_seconds() / 60) if info.get('inicio_reunion') else 15
                     nuevo_registro = {
                         'ID': token, 'Fecha': datetime.now(), 'Recinto': info['recinto'], 'Depto': info['depto'], 
@@ -512,32 +480,32 @@ def view_citizen_node():
                         'Estado': "Completado", 'Telefono': "No Registrado", 'Email': "No Registrado",
                         'Validador_Fisico': "Autónomo"
                     }
-                    st.session_state.db_master = pd.concat([pd.DataFrame([nuevo_registro]), st.session_state.db_master], ignore_index=True)
-                    del st.session_state.citizen_token_v44
+                    GLOBAL_MEM['db_master'] = pd.concat([pd.DataFrame([nuevo_registro]), GLOBAL_MEM['db_master']], ignore_index=True)
+                    del st.session_state.citizen_token_v46
                     st.rerun()
         
         elif info['estado'] == "EXPIRADO":
             st.error("⚠️ TIEMPO DE ESPERA AGOTADO")
             st.write("Por favor, avise al guardia o intente registrarse nuevamente.")
             if st.button("VOLVER A INTENTAR"):
-                del st.session_state.citizen_token_v44
+                del st.session_state.citizen_token_v46
                 st.rerun()
                 
         st.markdown("</div>", unsafe_allow_html=True)
 
 # ==================================================================================================
-# 5. NODO II: MONITOR CONTROL TOTAL (TV / COMMAND CENTER)
+# 5. NODO II: MONITOR CONTROL TOTAL (LEE DESDE MEMORIA GLOBAL)
 # ==================================================================================================
 
 def view_master_monitor():
     st.markdown("<h1 class='muni-title'>MONITOR GLOBAL SGAAC-360</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align:center; font-weight:900; font-size:1.6em; color:#1e3a8a !important;'>CONTROL DE RED TERRITORIAL EN VIVO</p>", unsafe_allow_html=True)
     
-    total_esperas = len([v for v in st.session_state.waiting_room.values() if v['estado'] == 'COORDINANDO'])
-    total_activos = len([v for v in st.session_state.waiting_room.values() if v['estado'] == 'EN_REUNION'])
+    total_esperas = len([v for v in GLOBAL_MEM['waiting_room'].values() if v['estado'] == 'COORDINANDO'])
+    total_activos = len([v for v in GLOBAL_MEM['waiting_room'].values() if v['estado'] == 'EN_REUNION'])
     
     c1, c2 = st.columns(2)
-    with c1: st.error(f"🔴 ESPERAS ACTIVAS: {total_esperas}")
+    with c1: st.error(f"🔴 ESPERAS ACTIVAS EN LA RED: {total_esperas}")
     with c2: st.success(f"🟢 AUDIENCIAS EN VIVO: {total_activos}")
     st.divider()
 
@@ -546,8 +514,8 @@ def view_master_monitor():
     
     for i, r_name in enumerate(recintos_list):
         with cols[i % 4]:
-            esp = [v for v in st.session_state.waiting_room.values() if v['recinto'] == r_name and v['estado'] == 'COORDINANDO']
-            act = [v for v in st.session_state.waiting_room.values() if v['recinto'] == r_name and v['estado'] == 'EN_REUNION']
+            esp = [v for v in GLOBAL_MEM['waiting_room'].values() if v['recinto'] == r_name and v['estado'] == 'COORDINANDO']
+            act = [v for v in GLOBAL_MEM['waiting_room'].values() if v['recinto'] == r_name and v['estado'] == 'EN_REUNION']
             
             has_alert = len(esp) > 2
             border_css = "border: 10px solid #dc2626;" if has_alert else "border-top: 14px solid #1e3a8a;"
@@ -570,7 +538,7 @@ def view_master_monitor():
             """, unsafe_allow_html=True)
 
 # ==================================================================================================
-# 6. NODOS INTERNOS: GUARDIA, SECRETARÍAS, BIG DATA & CRM
+# 6. NODOS INTERNOS: GUARDIA Y SECRETARÍAS (MULTIUSUARIO REAL)
 # ==================================================================================================
 
 def view_tactical_and_data():
@@ -580,40 +548,33 @@ def view_tactical_and_data():
         "🛡️ Guardia / Control Físico", "🔔 Secretarías (Audiencias)", "📊 Big Data", "⚙️ CRM", "🕵️ Auditoría"
     ])
     
-    # ----------------------------------------------------------------------------------------------
-    # MODULO GUARDIA (DOBLE FACTOR: ENTRADA Y SALIDA)
-    # ----------------------------------------------------------------------------------------------
     with t_guardia:
         st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
         st.subheader("🛡️ 1. Validación de ENTRADA (Filtro Perimetral)")
-        aut_v = {k: v for k, v in st.session_state.waiting_room.items() if v['estado'] == 'AUTORIZADO'}
-        if not aut_v: st.info("🟢 Sin pases de entrada pendientes.")
+        aut_v = {k: v for k, v in GLOBAL_MEM['waiting_room'].items() if v['estado'] == 'AUTORIZADO'}
+        if not aut_v: st.info("🟢 Sin pases de entrada pendientes en toda la red.")
         for uid, info in aut_v.items():
             with st.container(border=True):
                 st.write(f"👤 **{info['nombre']}** | RUT: {info['rut']} -> Hacia: {info['depto']}")
                 if st.button(f"CONFIRMAR ENTRADA FÍSICA", key=f"g_in_{uid}"):
-                    st.session_state.waiting_room[uid]['estado'] = 'EN_REUNION'
-                    st.session_state.waiting_room[uid]['inicio_reunion'] = datetime.now()
-                    registrar_auditoria(f"ENTRADA VALIDADA: {info['nombre']}")
+                    GLOBAL_MEM['waiting_room'][uid]['estado'] = 'EN_REUNION'
+                    GLOBAL_MEM['waiting_room'][uid]['inicio_reunion'] = datetime.now()
+                    registrar_auditoria(f"ENTRADA VALIDADA POR GUARDIA: {info['nombre']}")
                     st.rerun()
                     
         st.divider()
         st.subheader("🚪 2. Validación de SALIDA (Cierre de Ciclo)")
-        st.write("Verifique que el vecino se retire del recinto para cerrar su expediente en la Big Data.")
-        # El guardia ve a los que están en evaluación o listos para salir
-        sal_v = {k: v for k, v in st.session_state.waiting_room.items() if v['estado'] in ['EVALUACION', 'SALIDA_PENDIENTE']}
+        sal_v = {k: v for k, v in GLOBAL_MEM['waiting_room'].items() if v['estado'] in ['EVALUACION', 'SALIDA_PENDIENTE']}
         if not sal_v: st.info("🟢 Sin vecinos en proceso de retiro.")
         for uid, info in sal_v.items():
             with st.container(border=True):
                 estado_texto = "En Evaluación" if info['estado'] == 'EVALUACION' else "Listo para Salir"
                 st.write(f"👤 **{info['nombre']}** | De: {info['depto']} | Estado: {estado_texto}")
                 if st.button(f"CONFIRMAR SALIDA DEL RECINTO", key=f"g_out_{uid}"):
-                    # Cálculo de permanencia
                     permanencia = 15 
                     if info.get('inicio_reunion') and info.get('fin_reunion'):
                         permanencia = int((info['fin_reunion'] - info['inicio_reunion']).total_seconds() / 60)
                     
-                    # Generar registro final en Big Data
                     nuevo_registro = {
                         'ID': uid, 'Fecha': datetime.now(), 'Recinto': info['recinto'], 
                         'Depto': info['depto'], 'Perfil': info['perfil'], 'Visitante': info['nombre'], 
@@ -621,65 +582,56 @@ def view_tactical_and_data():
                         'Estado': "Completado", 'Telefono': "No Registrado", 'Email': "No Registrado",
                         'Validador_Fisico': "Guardia Turno Activo"
                     }
-                    st.session_state.db_master = pd.concat([pd.DataFrame([nuevo_registro]), st.session_state.db_master], ignore_index=True)
-                    registrar_auditoria(f"SALIDA CONFIRMADA (CIERRE BD): {info['nombre']}")
+                    GLOBAL_MEM['db_master'] = pd.concat([pd.DataFrame([nuevo_registro]), GLOBAL_MEM['db_master']], ignore_index=True)
+                    registrar_auditoria(f"SALIDA CONFIRMADA GUARDIA (CIERRE BD): {info['nombre']}")
                     
-                    # Eliminar de la cola activa
-                    del st.session_state.waiting_room[uid]
+                    del GLOBAL_MEM['waiting_room'][uid]
                     st.rerun()
 
         st.divider()
-        st.subheader("👁️ Radar de Esperas (Coordinando)")
-        coord_v = {k: v for k, v in st.session_state.waiting_room.items() if v['estado'] == 'COORDINANDO'}
+        st.subheader("👁️ Radar de Esperas Global (Coordinando)")
+        coord_v = {k: v for k, v in GLOBAL_MEM['waiting_room'].items() if v['estado'] == 'COORDINANDO'}
         if coord_v:
-            df_tactical = pd.DataFrame([{"Vecino": v['nombre'], "Oficina": v['depto']} for v in coord_v.values()])
+            df_tactical = pd.DataFrame([{"Vecino": v['nombre'], "Oficina": v['depto'], "Recinto": v['recinto']} for v in coord_v.values()])
             st.table(df_tactical)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ----------------------------------------------------------------------------------------------
-    # MODULO SECRETARÍAS (AUTORIZACIÓN Y CIERRE DE REUNIÓN)
-    # ----------------------------------------------------------------------------------------------
     with t_secre:
         st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
         st.subheader("🔔 1. Solicitudes Entrantes (Recepción)")
-        pend_v = {k: v for k, v in st.session_state.waiting_room.items() if v['estado'] == 'COORDINANDO'}
+        pend_v = {k: v for k, v in GLOBAL_MEM['waiting_room'].items() if v['estado'] == 'COORDINANDO'}
         if not pend_v: st.success("🟢 No hay vecinos esperando recepción.")
         for uid, info in pend_v.items():
             with st.container(border=True):
                 st.write(f"👤 **{info['nombre']}** | Perfil: {info['perfil']} | Recinto: {info['recinto']}")
                 c_ok, c_rej = st.columns(2)
                 if c_ok.button("✅ AUTORIZAR INGRESO", key=f"s_ok_{uid}"):
-                    st.session_state.waiting_room[uid]['estado'] = 'AUTORIZADO'
+                    GLOBAL_MEM['waiting_room'][uid]['estado'] = 'AUTORIZADO'
                     registrar_auditoria(f"SECRETARÍA AUTORIZA INGRESO: {info['nombre']}")
                     st.rerun()
                 if c_rej.button("❌ DENEGAR", key=f"s_no_{uid}"):
-                    st.session_state.waiting_room[uid]['estado'] = 'EXPIRADO'
+                    GLOBAL_MEM['waiting_room'][uid]['estado'] = 'EXPIRADO'
                     st.rerun()
                     
         st.divider()
         st.subheader("🤝 2. Audiencias en Curso (Control de Tiempos)")
-        st.write("Presione Finalizar cuando el vecino termine su trámite en la oficina.")
-        reuniones = {k: v for k, v in st.session_state.waiting_room.items() if v['estado'] == 'EN_REUNION'}
+        reuniones = {k: v for k, v in GLOBAL_MEM['waiting_room'].items() if v['estado'] == 'EN_REUNION'}
         if not reuniones: st.info("🟢 No hay audiencias activas en el sistema.")
         for uid, info in reuniones.items():
             with st.container(border=True):
                 st.write(f"👤 **{info['nombre']}** | RUT: {info['rut']}")
                 if st.button("🛑 FINALIZAR REUNIÓN (Cerrar Tiempo)", key=f"s_fin_{uid}"):
-                    st.session_state.waiting_room[uid]['estado'] = 'EVALUACION'
-                    st.session_state.waiting_room[uid]['fin_reunion'] = datetime.now()
+                    GLOBAL_MEM['waiting_room'][uid]['estado'] = 'EVALUACION'
+                    GLOBAL_MEM['waiting_room'][uid]['fin_reunion'] = datetime.now()
                     registrar_auditoria(f"SECRETARÍA FINALIZA AUDIENCIA: {info['nombre']}")
                     st.rerun()
-                    
         st.markdown("</div>", unsafe_allow_html=True)
         
-    # ----------------------------------------------------------------------------------------------
-    # MÓDULOS DE ANALÍTICA, CRM Y AUDITORÍA
-    # ----------------------------------------------------------------------------------------------
     with t_data:
         st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
         st.subheader("📊 Inteligencia Territorial (Big Data)")
-        st.metric("Volumen Big Data", f"{len(st.session_state.db_master):,}", "Registros Válidos")
-        st.bar_chart(st.session_state.db_master['Recinto'].value_counts(), color="#1e3a8a")
+        st.metric("Volumen Big Data", f"{len(GLOBAL_MEM['db_master']):,}", "Registros Válidos")
+        st.bar_chart(GLOBAL_MEM['db_master']['Recinto'].value_counts(), color="#1e3a8a")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with t_crm:
@@ -687,38 +639,39 @@ def view_tactical_and_data():
         st.subheader("🔍 CRM Ciudadano")
         search_id = st.text_input("Ingrese ID Único de Visita (Ej: VIS-100050):")
         if search_id:
-            idx = st.session_state.db_master.index[st.session_state.db_master['ID'] == search_id].tolist()
+            idx = GLOBAL_MEM['db_master'].index[GLOBAL_MEM['db_master']['ID'] == search_id].tolist()
             if idx:
                 i = idx[0]
                 with st.form("crm_form"):
-                    tel = st.text_input("Contacto", st.session_state.db_master.at[i, 'Telefono'])
+                    tel = st.text_input("Contacto", GLOBAL_MEM['db_master'].at[i, 'Telefono'])
                     if st.form_submit_button("ACTUALIZAR FICHA"):
-                        st.session_state.db_master.at[i, 'Telefono'] = tel
-                        st.success("✅ Ficha Actualizada.")
-        st.dataframe(st.session_state.db_master.head(50), use_container_width=True)
+                        GLOBAL_MEM['db_master'].at[i, 'Telefono'] = tel
+                        st.success("✅ Ficha Actualizada en Servidor Global.")
+        st.dataframe(GLOBAL_MEM['db_master'].head(50), use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     with t_logs:
         st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
-        st.subheader("🕵️ Auditoría Inmutable")
-        for log in st.session_state.audit_logs[:60]: 
+        st.subheader("🕵️ Auditoría Inmutable del Servidor")
+        for log in GLOBAL_MEM['audit_logs'][:60]: 
             st.code(log, language="bash")
         st.markdown("</div>", unsafe_allow_html=True)
 
 # ==================================================================================================
-# 7. ORQUESTADOR PRINCIPAL
+# 7. ORQUESTADOR PRINCIPAL (LOOP MULTIPLAYER)
 # ==================================================================================================
 
 def main():
     bootstrap_enterprise_logic()
     inject_titanium_mobile_css()
     
-    # Limpieza de expirados
+    # Motor de limpieza de la memoria Global
     now = datetime.now()
-    expired_uids = [uid for uid, info in st.session_state.waiting_room.items() if info['estado'] == 'COORDINANDO' and (now - info['inicio']).total_seconds() >= 180]
-    for uid in expired_uids: st.session_state.waiting_room[uid]['estado'] = 'EXPIRADO'
+    expired_uids = [uid for uid, info in GLOBAL_MEM['waiting_room'].items() if info['estado'] == 'COORDINANDO' and (now - info['inicio']).total_seconds() >= 180]
+    for uid in expired_uids: 
+        GLOBAL_MEM['waiting_room'][uid]['estado'] = 'EXPIRADO'
+        registrar_auditoria(f"SERVIDOR: Timeout automático de {GLOBAL_MEM['waiting_room'][uid]['nombre']}")
 
-    # NAVEGACIÓN UNIVERSAL (TABS ENVOLVENTES)
     tab_labels = ["👤 CIUDADANO (QR)", "🖥️ MONITOR MAESTRO", "⚙️ PANEL ADMINISTRATIVO"]
     tab_main_1, tab_main_2, tab_main_3 = st.tabs(tab_labels)
     
@@ -730,7 +683,7 @@ def main():
         <div style='text-align:center; padding:20px; border-top: 2px solid #f1f5f9;'>
             <p style='font-size:1em; font-weight:800; color:#64748b !important;'>
                 Gestión Smart City | Ilustre Municipalidad de La Serena<br>
-                SGAAC-360 Version 44.0 Full Security
+                SGAAC-360 Version 46.0 Global Sync
             </p>
         </div>
     """, unsafe_allow_html=True)
