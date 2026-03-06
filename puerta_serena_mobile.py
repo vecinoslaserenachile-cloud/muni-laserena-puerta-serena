@@ -3,15 +3,13 @@
 SISTEMA DE GESTIÓN DE ACCESOS, AUDIENCIAS Y COORDINACIÓN MUNICIPAL GLOBAL (SGAAC-360)
 ====================================================================================================
 ESTADO: GLOBAL ENTERPRISE PLATINUM / SMART CITY / TITANIUM MOBILE UX / ANALYTICS CORE
-VERSIÓN: 49.0.0 (High-Density Modular Architecture - TOTAL EXTEND MODE +1100 LÍNEAS)
+VERSIÓN: 49.1.0 (High-Density Modular Architecture - TOTAL EXTEND MODE +1100 LÍNEAS)
 PROPIEDAD: Ilustre Municipalidad de La Serena - Proyecto Smart City Chile
 
-RESTAURACIÓN Y MEJORA DEL MOTOR BIG DATA (V49.0):
-- Se ha reconstruido el módulo Analítico con procesamiento de datos avanzado (Pandas).
-- Gráficos integrados: Tiempos de Atención categorizados, Top Departamentos, Distribución 
-  NPS, Flujo por Recintos y Tendencias Temporales de área.
-- Se mantiene el blindaje móvil total (Anti-Dark Mode, No Sidebar, HTML Header).
-- Se conserva el doble factor de seguridad (Secretaría finaliza -> Guardia confirma salida).
+AJUSTE TERRITORIAL (v49.1):
+- Corrección de infraestructura: Se reemplaza "Centro Cultural Palace" (Coquimbo) 
+  por "Centro Cultural Santa Inés" (La Serena) para mantener el rigor geográfico 
+  sin alterar la estructura del diccionario de datos ni la analítica.
 
 ARQUITECTURA DE 7 NODOS ESTRATÉGICOS:
 1.  NODO CIUDADANO (QR): UX Adulto Mayor, Escudos HTML, Anti-Dark Mode implacable.
@@ -52,7 +50,7 @@ URL_APP_DEPLOY = "https://puertaserena.streamlit.app"
 URL_ENCODED = urllib.parse.quote(URL_APP_DEPLOY)
 URL_QR_COMPARTIR = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={URL_ENCODED}"
 
-# INFRAESTRUCTURA DE RED (17 Recintos Estratégicos)
+# INFRAESTRUCTURA DE RED (17 Recintos Estratégicos I.M. La Serena)
 INFRAESTRUCTURA_IMLS = {
     "Edificio Consistorial (Prat 451)": {"dotacion": True, "icono": "🏛️", "zona": "Casco Histórico", "id": "EC-01", "capacidad": 150},
     "Edificio Carrera (Prat esq. Matta)": {"dotacion": True, "icono": "🏢", "zona": "Casco Histórico", "id": "EC-02", "capacidad": 120},
@@ -69,7 +67,7 @@ INFRAESTRUCTURA_IMLS = {
     "Parque Pedro de Valdivia (Admin)": {"dotacion": True, "icono": "🦌", "zona": "Recreación", "id": "PPV-13", "capacidad": 100},
     "Juzgado de Policía Local": {"dotacion": True, "icono": "⚖️", "zona": "Justicia", "id": "JPL-14", "capacidad": 110},
     "Taller Municipal": {"dotacion": False, "icono": "🛠️", "zona": "Operativa", "id": "TM-15", "capacidad": 60},
-    "Centro Cultural Palace": {"dotacion": False, "icono": "🎨", "zona": "Cultura", "id": "CCP-16", "capacidad": 150},
+    "Centro Cultural Santa Inés": {"dotacion": False, "icono": "🎨", "zona": "Cultura", "id": "CSI-16", "capacidad": 150},
     "Estadio La Portada (Admin)": {"dotacion": True, "icono": "⚽", "zona": "Deportes", "id": "ELP-17", "capacidad": 300}
 }
 
@@ -102,8 +100,8 @@ AVISOS_PROMO = [
 
 def bootstrap_enterprise_logic():
     """Motor de inicialización absoluta seguro. Carga la base de datos sintética para analítica."""
-    if 'system_initialized_v49' not in st.session_state:
-        st.session_state.system_initialized_v49 = True
+    if 'system_initialized_v49_1' not in st.session_state:
+        st.session_state.system_initialized_v49_1 = True
         st.session_state.boot_time = datetime.now()
         
         if 'audit_logs' not in st.session_state:
@@ -363,7 +361,7 @@ def render_smartcity_sovereign_header():
 def view_citizen_node():
     """El punto de contacto principal para el ciudadano."""
     render_smartcity_sovereign_header()
-    token = st.session_state.get('citizen_token_v49')
+    token = st.session_state.get('citizen_token_v49_1')
     
     if not token or token not in st.session_state.waiting_room:
         st.markdown("""
@@ -404,7 +402,7 @@ def view_citizen_node():
                         "estado": "COORDINANDO", "inicio_reunion": None, "fin_reunion": None,
                         "nps_temp": 5
                     }
-                    st.session_state.citizen_token_v49 = uid
+                    st.session_state.citizen_token_v49_1 = uid
                     registrar_auditoria(f"REGISTRO CREADO: {nombre_input} en {recinto_sel}")
                     st.rerun()
                 else: 
@@ -473,14 +471,14 @@ def view_citizen_node():
                         'Validador_Fisico': "Autónomo"
                     }
                     st.session_state.db_master = pd.concat([pd.DataFrame([nuevo_registro]), st.session_state.db_master], ignore_index=True)
-                    del st.session_state.citizen_token_v49
+                    del st.session_state.citizen_token_v49_1
                     st.rerun()
         
         elif info['estado'] == "EXPIRADO":
             st.error("⚠️ TIEMPO DE ESPERA AGOTADO")
             st.write("Por favor, avise al guardia o intente registrarse nuevamente.")
             if st.button("VOLVER A INTENTAR"):
-                del st.session_state.citizen_token_v49
+                del st.session_state.citizen_token_v49_1
                 st.rerun()
                 
         st.markdown("</div>", unsafe_allow_html=True)
@@ -572,7 +570,6 @@ def view_big_data_analytics():
     c3, c4 = st.columns(2)
     with c3:
         st.markdown("<h3 style='color:#d97706;'>⏱️ Distribución de Tiempos de Atención</h3>", unsafe_allow_html=True)
-        # Procesamiento Pandas: Creación de rangos de tiempo
         bins = [0, 15, 30, 45, 60, 200]
         labels = ['0-15m', '16-30m', '31-45m', '46-60m', '+60m']
         df_time = df.copy()
@@ -590,12 +587,10 @@ def view_big_data_analytics():
     # 4. Tendencia de Flujo (Simulación últimos 30 días)
     st.markdown("<h3 style='color:#1e3a8a;'>📈 Tendencia de Visitas Diarias</h3>", unsafe_allow_html=True)
     df_trend = df.copy()
-    # Asegurar formato datetime
     df_trend['Fecha'] = pd.to_datetime(df_trend['Fecha'])
     recent_df = df_trend[df_trend['Fecha'] >= (datetime.now() - timedelta(days=30))]
     
     if not recent_df.empty:
-        # Agrupar por día y contar
         trend = recent_df.groupby(recent_df['Fecha'].dt.date).size()
         st.area_chart(trend, color="#1e3a8a")
     else:
@@ -608,7 +603,6 @@ def view_big_data_analytics():
 def view_tactical_and_data():
     st.markdown("<h2 class='muni-title'>PANEL DE GESTIÓN INTERNA</h2>", unsafe_allow_html=True)
     
-    # Hemos añadido la pestaña "Big Data Avanzado" y "Reportes"
     t_guardia, t_secre, t_data, t_crm, t_rep, t_logs = st.tabs([
         "🛡️ Guardia / Control Físico", "🔔 Secretarías", "📊 Big Data Avanzado", "⚙️ CRM", "📋 Reportes CSV", "🕵️ Auditoría"
     ])
@@ -761,7 +755,7 @@ def main():
         <div style='text-align:center; padding:20px; border-top: 2px solid #f1f5f9; margin-top:40px;'>
             <p style='font-size:1em; font-weight:800; color:#64748b !important;'>
                 Smart City | Ilustre Municipalidad de La Serena<br>
-                SGAAC-360 Version 49.0 Analytics Core
+                SGAAC-360 Version 49.1 Analytics Core
             </p>
         </div>
     """, unsafe_allow_html=True)
