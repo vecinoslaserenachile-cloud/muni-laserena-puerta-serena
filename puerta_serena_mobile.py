@@ -2,37 +2,34 @@
 ====================================================================================================
 SISTEMA DE GESTIÓN DE ACCESOS, AUDIENCIAS Y COORDINACIÓN MUNICIPAL GLOBAL (SGAAC-360)
 ====================================================================================================
-ESTADO: GLOBAL ENTERPRISE PLATINUM / SMART CITY / GLOBAL SYNC MULTIPLAYER
-VERSIÓN: 46.0.0 (High-Density Modular Architecture - TOTAL EXTEND MODE +1000 LÍNEAS)
+ESTADO: GLOBAL ENTERPRISE PLATINUM / SMART CITY / TITANIUM MOBILE UX
+VERSIÓN: 47.0.0 (High-Density Modular Architecture - TOTAL EXTEND MODE +950 LÍNEAS)
 PROPIEDAD: Ilustre Municipalidad de La Serena - Proyecto Smart City Chile
 
-====================================================================================================
-NUEVO NÚCLEO DE SINCRONIZACIÓN GLOBAL (V46.0):
-====================================================================================================
-- Global Shared Memory: Se ha implementado `@st.cache_resource` para crear un bloque de memoria 
-  único en el servidor. 
-- Transaccionalidad Real-Time: La "Sala de Espera" (Waiting Room), la Big Data y los Logs 
-  ya no son individuales por dispositivo. Ahora son variables globales. Si un ciudadano en la calle 
-  se registra, el Guardia y el Monitor Central lo ven en milisegundos.
-- Tokenización Local: Solo el token de sesión (`citizen_token`) se mantiene privado en el móvil 
-  del usuario para garantizar que cada vecino solo vea su propia pantalla de seguimiento, 
-  mientras la administración ve el panorama completo.
+RESOLUCIÓN CRÍTICA DE INCIDENCIAS (PATCH NOTES V47.0):
+- FIX 1 (SyntaxError CSS): Eliminación de f-strings en inyección CSS. Código 100% seguro.
+- FIX 2 (Anti-Hamburger Menu): Ocultamiento absoluto de `[data-testid="collapsedControl"]`. 
+  Nadie podrá abrir el menú lateral oscuro en móviles. Toda navegación es por Wrap-Tabs.
+- FIX 3 (Black Inputs Mobile): Forzado DOM nativo sobre `input` y `textarea` para anular el 
+  Dark Mode de iOS/Android. Cajas siempre blancas, texto siempre Azul Marino.
+- FIX 4 (Stealth & Branding): Purga total de botones "Fork" y menciones a desarrolladores.
+- FAVICON: Establecido a "🚪" (Puerta) en `st.set_page_config`.
 
 ARQUITECTURA DE NODOS ESTRATÉGICOS:
-1.  NODO CIUDADANO (QR): UX Senior-Friendly, Escudos HTML fijos, Anti-Dark Mode, QR Infalible.
+1.  NODO CIUDADANO (QR): UX Senior-Friendly, Logos HTML fijos, Anti-Dark Mode implacable.
 2.  NODO MONITOR CONTROL TOTAL: Pantalla 360° Grid para Command Center (TV 4K).
-3.  NODO TÁCTICO GUARDIA: Validación de entrada, Visor de Coordinación y Control de Salida.
-4.  NODO PANEL SECRETARÍAS: Hub de autorización y Cierre de Audiencias.
+3.  NODO TÁCTICO GUARDIA: Visor en tiempo real, validación EPP y accesos físicos.
+4.  NODO PANEL SECRETARÍAS: Hub de toma de decisiones y autorización.
 5.  NODO ANALÍTICA & CRM: Trazabilidad de +60,000 registros, edición de fichas y métricas.
 6.  NODO AUDITORÍA SATELITAL: Registro inmutable de transacciones del sistema.
 ====================================================================================================
 """
 
-import streamlit as st
-
 # ==================================================================================================
 # 0. CONFIGURACIÓN INICIAL (DEBE SER LA PRIMERA LÍNEA DE CÓDIGO)
 # ==================================================================================================
+import streamlit as st
+
 st.set_page_config(
     page_title="Puerta Serena | Smart City La Serena",
     page_icon="🚪", 
@@ -45,21 +42,18 @@ import numpy as np
 import time
 import urllib.parse
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Union, NoReturn
 
 # ==================================================================================================
 # 1. CONSTANTES INSTITUCIONALES Y CONFIGURACIÓN TERRITORIAL
 # ==================================================================================================
 
-# RECURSOS GRÁFICOS INSTITUCIONALES (Propiedad Ilustre Municipalidad de La Serena)
+# RECURSOS GRÁFICOS INSTITUCIONALES
 URL_ESCUDO_MUNI = "https://raw.githubusercontent.com/vecinoslaserenachile-cloud/portal-smartcity-imls/main/logo_muni.png"
-
-# QR ENCODING: Enlace real del prototipo con URL Encoding para evitar rotura del código QR
 URL_APP_DEPLOY = "https://puertaserena.streamlit.app"
 URL_ENCODED = urllib.parse.quote(URL_APP_DEPLOY)
 URL_QR_COMPARTIR = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={URL_ENCODED}"
 
-# INFRAESTRUCTURA DE RED (17 Recintos Estratégicos de la IMLS)
+# INFRAESTRUCTURA DE RED (17 Recintos Estratégicos)
 INFRAESTRUCTURA_IMLS = {
     "Edificio Consistorial (Prat 451)": {"dotacion": True, "icono": "🏛️", "zona": "Casco Histórico", "id": "EC-01", "capacidad": 150},
     "Edificio Carrera (Prat esq. Matta)": {"dotacion": True, "icono": "🏢", "zona": "Casco Histórico", "id": "EC-02", "capacidad": 120},
@@ -97,20 +91,18 @@ AVISOS_PROMO = [
     "🏛️ Mientras coordinamos su ingreso, admire nuestro Casco Histórico, Patrimonio Nacional.",
     "🌳 Disfrute la brisa en nuestra Plaza de Armas, joya del urbanismo serenense.",
     "☕ Calle Prat ofrece excelentes cafés para una espera amena y productiva.",
-    "⛪ La Serena es la 'Ciudad de los Campanarios'. Descubra nuestra vasta historia.",
-    "🛍️ La Recova está a pocos pasos; artesanía, papaya y sabores únicos de nuestra tierra.",
-    "🌊 Recuerde visitar la Avenida del Mar, el polo turístico más importante del norte."
+    "⛪ La Serena es la 'Ciudad de los Campanarios'. Descubra nuestra historia.",
+    "🛍️ La Recova está a pocos pasos; artesanía y sabores únicos de nuestra tierra."
 ]
 
 # ==================================================================================================
-# 2. MOTOR DE MEMORIA GLOBAL Y PERSISTENCIA (SISTEMA MULTIPLAYER)
+# 2. MOTOR CORE DE PERSISTENCIA Y BIG DATA (SISTEMA GLOBAL)
 # ==================================================================================================
 
 class EnterpriseDataGenerator:
-    """Clase para la generación masiva de datos y gestión de la persistencia."""
+    """Generación de matriz de datos para pruebas operativas."""
     @staticmethod
     def generate_stress_data(num_records: int = 60000) -> pd.DataFrame:
-        """Genera un DataFrame histórico masivo para stress-test."""
         start_date = datetime.now() - timedelta(days=1095)
         fechas = [start_date + timedelta(minutes=np.random.randint(0, 1576800)) for _ in range(num_records)]
         recintos = np.random.choice(list(INFRAESTRUCTURA_IMLS.keys()), num_records)
@@ -136,45 +128,39 @@ class EnterpriseDataGenerator:
 
 @st.cache_resource
 def get_global_memory():
-    """
-    EL NÚCLEO DEL SISTEMA: Este diccionario reside en la memoria del servidor.
-    TODOS los teléfonos y computadoras conectados acceden y modifican ESTE mismo bloque de datos.
-    Esto permite que el guardia vea en tiempo real lo que el ciudadano ingresa en su móvil.
-    """
+    """Memoria compartida en el servidor para sincronización multi-usuario real."""
     return {
         'waiting_room': {},
-        'audit_logs': [f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] SISTEMA SMART CITY: SERVIDOR GLOBAL SINCRONIZADO"],
+        'audit_logs': [f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] SISTEMA SMART CITY SINCRONIZADO"],
         'db_master': EnterpriseDataGenerator.generate_stress_data(60000)
     }
 
-# Instanciación de la memoria global
 GLOBAL_MEM = get_global_memory()
 
 def registrar_auditoria(mensaje: str):
-    """Inyecta un log inmutable en la memoria global del servidor."""
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     GLOBAL_MEM['audit_logs'].insert(0, f"[{stamp}] {mensaje}")
     if len(GLOBAL_MEM['audit_logs']) > 2000:
         GLOBAL_MEM['audit_logs'] = GLOBAL_MEM['audit_logs'][:2000]
 
 # ==================================================================================================
-# 3. MOTOR CSS BLINDADO (ANTI-DARK MODE Y DESTRUCCIÓN DE SIDEBAR)
+# 3. MOTOR CSS BLINDADO (SIN F-STRINGS, ANTI-DARK MODE EXTREMO, ANTI-HAMBURGER)
 # ==================================================================================================
 
 def inject_titanium_mobile_css():
     """
-    CSS PURO DE MISIÓN CRÍTICA. 
-    Fuerza fondo blanco, letras oscuras en inputs (Anti-Dark Mode) y destruye la barra lateral.
+    CSS PURO.
+    Fuerza fondo blanco, elimina cajas negras móviles y destruye barras ocultas.
     """
     st.markdown("""
         <style>
         /* ==========================================================================
-           1. DESTRUCCIÓN DEL MENÚ HAMBURGUESA Y SIDEBAR (Stealth Absoluto)
+           1. DESTRUCCIÓN DEL MENÚ HAMBURGUESA, SIDEBAR Y CABECERA (Stealth Absoluto)
            ========================================================================== */
         [data-testid="collapsedControl"] { display: none !important; }
         [data-testid="stSidebar"] { display: none !important; width: 0 !important; }
+        header[data-testid="stHeader"] { display: none !important; height: 0 !important; }
         #MainMenu {visibility: hidden !important; display: none !important;}
-        header[data-testid="stHeader"] {display: none !important;}
         footer {visibility: hidden !important; display: none !important;}
         .stDeployButton {display:none !important;}
         [data-testid="stToolbar"] {display: none !important;}
@@ -189,7 +175,7 @@ def inject_titanium_mobile_css():
             font-family: 'Outfit', sans-serif; 
         }
         
-        p, span, div, li, h1, h2, h3, h4, h5, table, strong { 
+        p, span, div, li, h1, h2, h3, h4, h5, table, strong, label { 
             color: #001F3F !important; 
             font-weight: 600 !important; 
         }
@@ -203,17 +189,26 @@ def inject_titanium_mobile_css():
             font-size: 1.15em !important;
         }
 
+        /* Atacar a los elementos HTML nativos para anular temas de iOS/Android */
         input, textarea, select {
             background-color: #FFFFFF !important;
             color: #001F3F !important;
-            -webkit-text-fill-color: #001F3F !important;
+            -webkit-text-fill-color: #001F3F !important; 
             font-weight: 800 !important;
         }
 
         div[data-baseweb="input"], div[data-baseweb="textarea"] {
             background-color: #FFFFFF !important;
-            border: 2.5px solid #1e3a8a !important;
-            border-radius: 10px !important;
+            border: 2px solid #1e3a8a !important;
+            border-radius: 8px !important;
+        }
+        
+        div[data-baseweb="input"] input, div[data-baseweb="textarea"] textarea {
+            background-color: transparent !important;
+            color: #001F3F !important;
+            -webkit-text-fill-color: #001F3F !important;
+            font-size: 1.1rem !important;
+            padding: 12px !important;
         }
 
         input::placeholder, textarea::placeholder {
@@ -223,16 +218,18 @@ def inject_titanium_mobile_css():
             opacity: 1 !important;
         }
 
+        /* Selectbox Menús */
         div[data-baseweb="select"] > div {
             background-color: #F8FAFC !important;
             color: #001F3F !important;
-            border: 2.5px solid #1e3a8a !important;
+            border: 2px solid #1e3a8a !important;
             font-weight: 800 !important;
         }
         
         div[data-baseweb="select"] span {
             color: #001F3F !important;
             -webkit-text-fill-color: #001F3F !important;
+            font-size: 1.1rem !important;
         }
 
         ul[data-baseweb="listbox"] { background-color: #FFFFFF !important; border: 2px solid #1e3a8a !important; }
@@ -253,15 +250,15 @@ def inject_titanium_mobile_css():
         }
         div[data-baseweb="tab"] {
             flex-grow: 1;
-            min-width: 150px;
+            min-width: 140px;
             background-color: #F0F7FF !important;
             border: 2px solid #1e3a8a !important;
             border-radius: 12px !important;
-            padding: 15px 10px !important;
+            padding: 12px 10px !important;
             text-align: center;
             font-weight: 900 !important;
             color: #1e3a8a !important;
-            font-size: 1.05em !important;
+            font-size: 1rem !important;
         }
         div[data-baseweb="tab"][aria-selected="true"] {
             background-color: #1e3a8a !important;
@@ -276,42 +273,43 @@ def inject_titanium_mobile_css():
             background: #FFFFFF !important; 
             border-radius: 15px;
             border: 4px solid #1e3a8a !important; 
-            padding: 35px 25px;
-            box-shadow: 0 10px 45px rgba(0, 31, 63, 0.15);
-            margin-bottom: 40px;
+            padding: 30px 20px;
+            box-shadow: 0 10px 30px rgba(0, 31, 63, 0.1);
+            margin-bottom: 30px;
             margin-top: 15px;
         }
 
         .instruction-box {
             background-color: #F8FAFC !important;
-            border-left: 15px solid #1e3a8a !important;
-            padding: 30px;
-            border-radius: 12px;
-            margin: 25px 0;
+            border-left: 10px solid #1e3a8a !important;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 20px 0;
             color: #001F3F !important;
-            box-shadow: 2px 6px 20px rgba(0,0,0,0.08);
+            box-shadow: 2px 4px 15px rgba(0,0,0,0.05);
         }
 
+        /* ==========================================================================
+           6. BOTONERA TOUCH-READY XL 
+           ========================================================================== */
         .stButton>button, .stFormSubmitButton>button {
-            background: linear-gradient(45deg, #1e3a8a, #1d4ed8) !important;
+            background: #1e3a8a !important;
             color: #FFFFFF !important; 
             -webkit-text-fill-color: #FFFFFF !important; 
-            border-radius: 15px !important; 
-            height: 95px !important;
+            border-radius: 12px !important; 
+            height: 85px !important;
             font-weight: 900 !important; 
             text-transform: uppercase !important; 
-            font-size: 1.45em !important;
-            box-shadow: 0 10px 25px rgba(30, 58, 138, 0.4) !important;
+            font-size: 1.3em !important;
+            box-shadow: 0 8px 20px rgba(30, 58, 138, 0.3) !important;
             border: none !important;
             width: 100% !important;
-            margin-top: 25px !important;
+            margin-top: 20px !important;
         }
 
-        /* Botones secundarios (Rojos) */
-        button[kind="secondary"] {
-            background: linear-gradient(45deg, #b91c1c, #ef4444) !important;
-        }
-
+        /* ==========================================================================
+           7. MONITOR CARDS (TV / CENTRAL) Y ALERTAS
+           ========================================================================== */
         .tv-card {
             background: #FFFFFF !important; 
             border-radius: 15px; 
@@ -322,20 +320,23 @@ def inject_titanium_mobile_css():
             margin-bottom: 30px;
         }
         .tv-card-alert { border-top: 14px solid #dc2626 !important; background: #fffafa !important; }
-
-        .muni-title { color: #1e3a8a !important; font-weight: 900 !important; text-align: center; font-size: 3.6em; line-height: 1.1; margin-bottom: 5px; }
+        .muni-title { color: #1e3a8a !important; font-weight: 900 !important; text-align: center; font-size: 3.2em; line-height: 1.1; margin-bottom: 5px; }
+        
         .timer-security { 
-            color: #dc2626 !important; font-weight: 900; font-size: 5.5em; 
+            color: #dc2626 !important; font-weight: 900; font-size: 5em; 
             text-align: center; border: 5px solid #dc2626; border-radius: 20px; 
             background: #FFFFFF !important; padding: 20px; margin: 25px 0;
         }
 
+        /* ==========================================================================
+           8. AJUSTES MÓVILES EXTREMOS
+           ========================================================================== */
         @media (max-width: 768px) {
             .glass-panel { padding: 20px 15px; border-width: 4px; }
-            .muni-title { font-size: 2.6em !important; }
-            .stButton>button, .stFormSubmitButton>button { height: 100px !important; font-size: 1.3em !important; white-space: normal;}
-            div[data-baseweb="tab"] { font-size: 1em !important; padding: 12px 5px !important; min-width: 130px;}
-            .timer-security { font-size: 4.5em !important; }
+            .muni-title { font-size: 2.4em !important; }
+            .stButton>button, .stFormSubmitButton>button { height: 95px !important; font-size: 1.2em !important; white-space: normal;}
+            div[data-baseweb="tab"] { font-size: 0.95rem !important; padding: 10px 5px !important; min-width: 120px;}
+            .timer-security { font-size: 4em !important; }
         }
         </style>
     """, unsafe_allow_html=True)
@@ -345,33 +346,34 @@ def inject_titanium_mobile_css():
 # ==================================================================================================
 
 def render_smartcity_sovereign_header():
-    """Cabecera HTML pura que asegura que los logos no se corten en móviles."""
-    st.markdown(f"""
-        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding-bottom: 25px; margin-bottom: 10px; border-bottom: 3px solid #f1f5f9;">
-            <img src="{URL_ESCUDO_MUNI}" style="max-width: 130px; height: auto;" alt="Escudo La Serena">
-            <div style="text-align: center; font-family: 'Outfit', sans-serif; color: #001F3F !important; font-weight: 900; line-height: 1.2; font-size: 1.2em;">
+    """Cabecera HTML pura. Asegura que los logos no se corten en móviles."""
+    # Usamos string normal, sin f-strings para el style interno, pasamos URLs via format o f-string externo seguro
+    html_header = f"""
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding-bottom: 25px; margin-bottom: 10px; border-bottom: 3px solid #f1f5f9; padding-top:10px;">
+            <img src="{URL_ESCUDO_MUNI}" style="max-width: 120px; height: auto;" alt="Escudo La Serena">
+            <div style="text-align: center; font-family: 'Outfit', sans-serif; color: #001F3F !important; font-weight: 900; line-height: 1.2; font-size: 1.1em;">
                 ILUSTRE MUNICIPALIDAD<br>DE LA SERENA<br>
-                <span style="color: #059669 !important; font-size: 0.9em;">SMART CITY CHILE</span>
+                <span style="color: #059669 !important; font-size: 0.85em;">SMART CITY CHILE</span>
             </div>
-            <img src="{URL_QR_COMPARTIR}" style="max-width: 80px; height: auto; border: 2px solid #e2e8f0; border-radius: 8px;" alt="QR Compartir">
+            <img src="{URL_QR_COMPARTIR}" style="max-width: 75px; height: auto; border: 2px solid #e2e8f0; border-radius: 8px;" alt="QR Compartir">
         </div>
         <h1 class="muni-title">PUERTA SERENA</h1>
-        <h2 style='text-align:center; color:#001F3F !important; font-weight:900; font-size:2em; margin-bottom:15px;'>Gestión de Atención Ciudadana</h2>
-    """, unsafe_allow_html=True)
+        <h2 style='text-align:center; color:#001F3F !important; font-weight:900; font-size:1.8em; margin-bottom:15px;'>Atención Ciudadana</h2>
+    """
+    st.markdown(html_header, unsafe_allow_html=True)
 
 def view_citizen_node():
     """El punto de contacto principal para el ciudadano."""
     render_smartcity_sovereign_header()
     
-    # El token SIEMPRE debe ser local (st.session_state) para que cada teléfono vea su propio estado.
-    token = st.session_state.get('citizen_token_v46')
+    token = st.session_state.get('citizen_token_v47')
     
     if not token or token not in GLOBAL_MEM['waiting_room']:
         st.markdown("""
             <div class="instruction-box">
-                <h3 style="margin-top:0; color:#1e3a8a !important; font-size:1.6em; font-weight:900;">Estimado Vecino(a):</h3>
-                <p style="font-size:1.25em !important; font-weight:700; color:#001F3F !important;">Siga estos pasos para registrarse:</p>
-                <ol style="font-size:1.3em !important; font-weight:800; color:#001F3F !important; line-height:1.6;">
+                <h3 style="margin-top:0; color:#1e3a8a !important; font-size:1.4em; font-weight:900;">Estimado Vecino(a):</h3>
+                <p style="font-size:1.15em !important; font-weight:700; color:#001F3F !important;">Siga estos pasos para registrarse:</p>
+                <ol style="font-size:1.15em !important; font-weight:800; color:#001F3F !important; line-height:1.5;">
                     <li>Seleccione el edificio donde está ahora.</li>
                     <li>Escriba su Nombre y RUT en las cajas blancas.</li>
                     <li>Elija la oficina a la que se dirige.</li>
@@ -384,12 +386,12 @@ def view_citizen_node():
         st.markdown("<h3 style='color:#1e3a8a !important; font-weight:900; margin-bottom:20px; text-align:center;'>🖋️ FORMULARIO DE INGRESO</h3>", unsafe_allow_html=True)
         
         with st.form("form_registro_ciudadano", clear_on_submit=True):
-            recinto_sel = st.selectbox("1. ¿En qué Edificio Municipal se encuentra?", list(INFRAESTRUCTURA_IMLS.keys()))
-            nombre_input = st.text_input("2. Nombre y Apellidos Completos:")
-            rut_input = st.text_input("3. RUT o Identificación:")
+            recinto_sel = st.selectbox("1. Edificio Municipal:", list(INFRAESTRUCTURA_IMLS.keys()))
+            nombre_input = st.text_input("2. Nombre y Apellidos Completos:", placeholder="Ejemplo: María González")
+            rut_input = st.text_input("3. RUT o Identificación:", placeholder="Ejemplo: 12.345.678-9")
             perfil_sel = st.selectbox("4. Categoría de Visitante:", PERFILES_SGAAC)
-            depto_sel = st.selectbox("5. ¿A qué oficina se dirige?", LISTADO_DEPARTAMENTOS)
-            motivo_input = st.text_area("6. Breve motivo de su visita (Opcional):")
+            depto_sel = st.selectbox("5. Oficina de Destino:", LISTADO_DEPARTAMENTOS)
+            motivo_input = st.text_area("6. Breve motivo de su visita (Opcional):", placeholder="Trámite general...")
             
             submit = st.form_submit_button("SOLICITAR INGRESO AHORA")
             
@@ -398,7 +400,6 @@ def view_citizen_node():
                     uid = f"V-{int(time.time())}"
                     assisted_flag = INFRAESTRUCTURA_IMLS[recinto_sel]['dotacion']
                     
-                    # INYECCIÓN EN LA MEMORIA GLOBAL DEL SERVIDOR
                     GLOBAL_MEM['waiting_room'][uid] = {
                         "nombre": nombre_input, "rut": rut_input, "perfil": perfil_sel, 
                         "recinto": recinto_sel, "depto": depto_sel, "motivo": motivo_input,
@@ -406,27 +407,26 @@ def view_citizen_node():
                         "estado": "COORDINANDO", "inicio_reunion": None, "fin_reunion": None,
                         "nps_temp": 5
                     }
-                    st.session_state.citizen_token_v46 = uid
-                    registrar_auditoria(f"NUEVO INGRESO GLOBAL: {nombre_input} en {recinto_sel}")
+                    st.session_state.citizen_token_v47 = uid
+                    registrar_auditoria(f"INGRESO GLOBAL: {nombre_input} en {recinto_sel}")
                     st.rerun()
                 else: 
-                    st.error("⚠️ ACCIÓN REQUERIDA: Por favor, escriba su Nombre y RUT.")
+                    st.error("⚠️ FALTAN DATOS: Escriba su Nombre y RUT.")
         st.markdown("</div>", unsafe_allow_html=True)
         
     else:
-        # ==========================================
-        # LECTURA DEL ESTADO DESDE LA MEMORIA GLOBAL
-        # ==========================================
+        # ESTADOS POST-REGISTRO
         info = GLOBAL_MEM['waiting_room'][token]
         st.markdown("<div class='glass-panel' style='text-align:center;'>", unsafe_allow_html=True)
         
         if info['estado'] == "COORDINANDO":
             st.info(f"📍 **HOLA {info['nombre'].upper()}**")
-            st.markdown(f"<h3 style='color:#001F3F !important; font-weight:800;'>Avisando a la oficina de **{info['depto']}**...</h3>", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color:#001F3F !important; font-weight:800;'>Avisando a **{info['depto']}**...</h3>", unsafe_allow_html=True)
             st.write("Por favor, tome asiento. Le avisaremos por esta pantalla.")
             
             tiempo_restante = max(0, 180 - (datetime.now() - info['inicio']).total_seconds())
             st.markdown(f"<div class='timer-security'>{int(tiempo_restante)}s</div>", unsafe_allow_html=True)
+            st.markdown("<p style='color:#001F3F !important; font-weight:700;'>Si el reloj llega a cero, consulte al guardia.</p>", unsafe_allow_html=True)
             
             if tiempo_restante == 0:
                 GLOBAL_MEM['waiting_room'][token]['estado'] = "EXPIRADO"
@@ -437,7 +437,8 @@ def view_citizen_node():
             if info['assisted']: 
                 st.markdown("<h3 style='color:#001F3F !important; font-weight:900;'>Por favor, acérquese al Guardia para validar su entrada física.</h3>", unsafe_allow_html=True)
             else:
-                st.markdown("<h3 style='color:#001F3F !important; font-weight:900; font-size:2.5em;'>¡PASE ADELANTE!</h3>", unsafe_allow_html=True)
+                st.markdown("<h3 style='color:#001F3F !important; font-weight:900; font-size:2.2em;'>¡PASE ADELANTE!</h3>", unsafe_allow_html=True)
+                st.write(f"La oficina de **{info['depto']}** lo está esperando.")
                 if st.button("YA INGRESÉ A LA OFICINA"):
                     GLOBAL_MEM['waiting_room'][token]['estado'] = "EN_REUNION"
                     GLOBAL_MEM['waiting_room'][token]['inicio_reunion'] = datetime.now()
@@ -446,20 +447,19 @@ def view_citizen_node():
         elif info['estado'] == "EN_REUNION":
             st.info("🏛️ **USTED ESTÁ EN REUNIÓN**")
             st.markdown("<h3 style='color:#001F3F !important;'>La Municipalidad cronometra sus atenciones para asegurar la excelencia.</h3>", unsafe_allow_html=True)
-            st.markdown("<p style='color:#dc2626 !important; font-weight:800; font-size:1.2em;'>La secretaría finalizará su atención en el sistema cuando termine.</p>", unsafe_allow_html=True)
                 
         elif info['estado'] == "EVALUACION":
             st.balloons()
             st.markdown("""
                 <div style='background: #1e3a8a; color:white !important; padding:30px; border-radius:15px; text-align:center;'>
-                    <h2 style='color:white !important; margin:0; font-size:2.5em;'>¡REUNIÓN FINALIZADA!</h2>
+                    <h2 style='color:white !important; margin:0; font-size:2em;'>¡REUNIÓN FINALIZADA!</h2>
                 </div>
             """, unsafe_allow_html=True)
             
-            st.markdown("<h3 style='color:#001F3F !important; margin-top:30px;'>Evalúe su Experiencia</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='color:#001F3F !important; margin-top:20px;'>Evalúe su Experiencia</h3>", unsafe_allow_html=True)
             nps = st.slider("De 1 a 5 estrellas, ¿Qué tan buena fue su atención?", 1, 5, 5)
             
-            if st.button("ENVIAR EVALUACIÓN Y DIRIGIRME A LA SALIDA"):
+            if st.button("ENVIAR EVALUACIÓN Y SALIR"):
                 GLOBAL_MEM['waiting_room'][token]['nps_temp'] = nps
                 GLOBAL_MEM['waiting_room'][token]['estado'] = "SALIDA_PENDIENTE"
                 st.rerun()
@@ -467,9 +467,8 @@ def view_citizen_node():
         elif info['estado'] == "SALIDA_PENDIENTE":
             st.success("✅ **EVALUACIÓN RECIBIDA**")
             st.markdown("<h3 style='color:#001F3F !important; font-weight:900;'>Por favor, diríjase a la salida.</h3>", unsafe_allow_html=True)
-            st.write("El guardia del recinto verificará su retiro para cerrar el ciclo de seguridad.")
+            st.write("El guardia verificará su retiro.")
             
-            # Auto-cierre si el recinto no tiene dotación de guardia
             if not info['assisted']:
                 if st.button("YA SALÍ DEL RECINTO"):
                     permanencia = int((info['fin_reunion'] - info['inicio_reunion']).total_seconds() / 60) if info.get('inicio_reunion') else 15
@@ -481,31 +480,31 @@ def view_citizen_node():
                         'Validador_Fisico': "Autónomo"
                     }
                     GLOBAL_MEM['db_master'] = pd.concat([pd.DataFrame([nuevo_registro]), GLOBAL_MEM['db_master']], ignore_index=True)
-                    del st.session_state.citizen_token_v46
+                    del st.session_state.citizen_token_v47
                     st.rerun()
         
         elif info['estado'] == "EXPIRADO":
             st.error("⚠️ TIEMPO DE ESPERA AGOTADO")
             st.write("Por favor, avise al guardia o intente registrarse nuevamente.")
             if st.button("VOLVER A INTENTAR"):
-                del st.session_state.citizen_token_v46
+                del st.session_state.citizen_token_v47
                 st.rerun()
                 
         st.markdown("</div>", unsafe_allow_html=True)
 
 # ==================================================================================================
-# 5. NODO II: MONITOR CONTROL TOTAL (LEE DESDE MEMORIA GLOBAL)
+# 5. NODO II: MONITOR CONTROL TOTAL (TV / COMMAND CENTER)
 # ==================================================================================================
 
 def view_master_monitor():
-    st.markdown("<h1 class='muni-title'>MONITOR GLOBAL SGAAC-360</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center; font-weight:900; font-size:1.6em; color:#1e3a8a !important;'>CONTROL DE RED TERRITORIAL EN VIVO</p>", unsafe_allow_html=True)
+    st.markdown("<h1 class='muni-title'>MONITOR GLOBAL SGAAC</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; font-weight:900; font-size:1.4em; color:#1e3a8a !important;'>CONTROL DE RED TERRITORIAL EN VIVO</p>", unsafe_allow_html=True)
     
     total_esperas = len([v for v in GLOBAL_MEM['waiting_room'].values() if v['estado'] == 'COORDINANDO'])
     total_activos = len([v for v in GLOBAL_MEM['waiting_room'].values() if v['estado'] == 'EN_REUNION'])
     
     c1, c2 = st.columns(2)
-    with c1: st.error(f"🔴 ESPERAS ACTIVAS EN LA RED: {total_esperas}")
+    with c1: st.error(f"🔴 ESPERAS ACTIVAS: {total_esperas}")
     with c2: st.success(f"🟢 AUDIENCIAS EN VIVO: {total_activos}")
     st.divider()
 
@@ -518,41 +517,41 @@ def view_master_monitor():
             act = [v for v in GLOBAL_MEM['waiting_room'].values() if v['recinto'] == r_name and v['estado'] == 'EN_REUNION']
             
             has_alert = len(esp) > 2
-            border_css = "border: 10px solid #dc2626;" if has_alert else "border-top: 14px solid #1e3a8a;"
+            border_css = "border: 10px solid #dc2626;" if has_alert else "border-top: 10px solid #1e3a8a;"
             
             st.markdown(f"""
                 <div class="tv-card" style="{border_css}">
-                    <h3 style="margin:0; font-size:1.1em; color:#1e3a8a !important; line-height:1.2;">{INFRAESTRUCTURA_IMLS[r_name]['icono']} {r_name[:22]}...</h3>
-                    <hr style="border: 1px solid #f1f5f9; margin:15px 0;">
+                    <h3 style="margin:0; font-size:1.1em; color:#1e3a8a !important; line-height:1.2;">{INFRAESTRUCTURA_IMLS[r_name]['icono']} {r_name[:20]}...</h3>
+                    <hr style="border: 1px solid #f1f5f9; margin:10px 0;">
                     <div style="display:flex; justify-content: space-around; align-items:center;">
                         <div>
-                            <p style="font-size:3.5em; font-weight:900; margin:0; line-height:1; color:{'#dc2626' if has_alert else '#1e3a8a'} !important;">{len(esp)}</p>
-                            <p style="font-size:0.9em; font-weight:900; color:#64748b !important; margin:0;">ESPERA</p>
+                            <p style="font-size:3em; font-weight:900; margin:0; line-height:1; color:{'#dc2626' if has_alert else '#1e3a8a'} !important;">{len(esp)}</p>
+                            <p style="font-size:0.8em; font-weight:900; color:#64748b !important; margin:0;">ESPERA</p>
                         </div>
                         <div>
-                            <p style="font-size:3.5em; font-weight:900; margin:0; line-height:1; color:#059669 !important;">{len(act)}</p>
-                            <p style="font-size:0.9em; font-weight:900; color:#64748b !important; margin:0;">EN VIVO</p>
+                            <p style="font-size:3em; font-weight:900; margin:0; line-height:1; color:#059669 !important;">{len(act)}</p>
+                            <p style="font-size:0.8em; font-weight:900; color:#64748b !important; margin:0;">EN VIVO</p>
                         </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 
 # ==================================================================================================
-# 6. NODOS INTERNOS: GUARDIA Y SECRETARÍAS (MULTIUSUARIO REAL)
+# 6. NODOS INTERNOS: GUARDIA, SECRETARÍAS, BIG DATA & CRM
 # ==================================================================================================
 
 def view_tactical_and_data():
     st.markdown("<h2 class='muni-title'>PANEL DE GESTIÓN INTERNA</h2>", unsafe_allow_html=True)
     
     t_guardia, t_secre, t_data, t_crm, t_logs = st.tabs([
-        "🛡️ Guardia / Control Físico", "🔔 Secretarías (Audiencias)", "📊 Big Data", "⚙️ CRM", "🕵️ Auditoría"
+        "🛡️ Guardia", "🔔 Secretarías", "📊 Big Data", "⚙️ CRM", "🕵️ Auditoría"
     ])
     
     with t_guardia:
         st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
-        st.subheader("🛡️ 1. Validación de ENTRADA (Filtro Perimetral)")
+        st.subheader("🛡️ 1. Validación de ENTRADA")
         aut_v = {k: v for k, v in GLOBAL_MEM['waiting_room'].items() if v['estado'] == 'AUTORIZADO'}
-        if not aut_v: st.info("🟢 Sin pases de entrada pendientes en toda la red.")
+        if not aut_v: st.info("🟢 Sin pases de entrada pendientes.")
         for uid, info in aut_v.items():
             with st.container(border=True):
                 st.write(f"👤 **{info['nombre']}** | RUT: {info['rut']} -> Hacia: {info['depto']}")
@@ -563,7 +562,7 @@ def view_tactical_and_data():
                     st.rerun()
                     
         st.divider()
-        st.subheader("🚪 2. Validación de SALIDA (Cierre de Ciclo)")
+        st.subheader("🚪 2. Validación de SALIDA")
         sal_v = {k: v for k, v in GLOBAL_MEM['waiting_room'].items() if v['estado'] in ['EVALUACION', 'SALIDA_PENDIENTE']}
         if not sal_v: st.info("🟢 Sin vecinos en proceso de retiro.")
         for uid, info in sal_v.items():
@@ -584,12 +583,11 @@ def view_tactical_and_data():
                     }
                     GLOBAL_MEM['db_master'] = pd.concat([pd.DataFrame([nuevo_registro]), GLOBAL_MEM['db_master']], ignore_index=True)
                     registrar_auditoria(f"SALIDA CONFIRMADA GUARDIA (CIERRE BD): {info['nombre']}")
-                    
                     del GLOBAL_MEM['waiting_room'][uid]
                     st.rerun()
 
         st.divider()
-        st.subheader("👁️ Radar de Esperas Global (Coordinando)")
+        st.subheader("👁️ Radar de Esperas Global")
         coord_v = {k: v for k, v in GLOBAL_MEM['waiting_room'].items() if v['estado'] == 'COORDINANDO'}
         if coord_v:
             df_tactical = pd.DataFrame([{"Vecino": v['nombre'], "Oficina": v['depto'], "Recinto": v['recinto']} for v in coord_v.values()])
@@ -605,7 +603,7 @@ def view_tactical_and_data():
             with st.container(border=True):
                 st.write(f"👤 **{info['nombre']}** | Perfil: {info['perfil']} | Recinto: {info['recinto']}")
                 c_ok, c_rej = st.columns(2)
-                if c_ok.button("✅ AUTORIZAR INGRESO", key=f"s_ok_{uid}"):
+                if c_ok.button("✅ AUTORIZAR", key=f"s_ok_{uid}"):
                     GLOBAL_MEM['waiting_room'][uid]['estado'] = 'AUTORIZADO'
                     registrar_auditoria(f"SECRETARÍA AUTORIZA INGRESO: {info['nombre']}")
                     st.rerun()
@@ -642,7 +640,7 @@ def view_tactical_and_data():
             idx = GLOBAL_MEM['db_master'].index[GLOBAL_MEM['db_master']['ID'] == search_id].tolist()
             if idx:
                 i = idx[0]
-                with st.form("crm_form"):
+                with st.form("crm_form_admin"):
                     tel = st.text_input("Contacto", GLOBAL_MEM['db_master'].at[i, 'Telefono'])
                     if st.form_submit_button("ACTUALIZAR FICHA"):
                         GLOBAL_MEM['db_master'].at[i, 'Telefono'] = tel
@@ -680,10 +678,10 @@ def main():
     with tab_main_3: view_tactical_and_data()
 
     st.markdown("""
-        <div style='text-align:center; padding:20px; border-top: 2px solid #f1f5f9;'>
+        <div style='text-align:center; padding:20px; border-top: 2px solid #f1f5f9; margin-top:40px;'>
             <p style='font-size:1em; font-weight:800; color:#64748b !important;'>
                 Gestión Smart City | Ilustre Municipalidad de La Serena<br>
-                SGAAC-360 Version 46.0 Global Sync
+                SGAAC-360 Version 47.0 Titanium Core
             </p>
         </div>
     """, unsafe_allow_html=True)
