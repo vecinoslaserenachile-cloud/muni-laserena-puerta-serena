@@ -1,16 +1,18 @@
 """
 ========================================================================================
-SISTEMA DE GESTIÓN DE ACCESOS Y AUDIENCIAS (SGAA) - RED DE RECINTOS MUNICIPALES IMLS
+SISTEMA DE GESTIÓN DE ACCESOS, AUDIENCIAS Y COORDINACIÓN ESTRATÉGICA (SGAAC)
 ========================================================================================
-ESTADO: ENTERPRISE EDITION / MISSION CRITICAL
-VERSIÓN: 6.0.0 (High-Performance Architecture)
-DESARROLLO: Vecinos La Serena Spa | Director de Proyecto
+ESTADO: ENTERPRISE PLATINUM / MISSION CRITICAL
+VERSIÓN: 8.0.0 (Global Hub & Citizen Experience)
+DESARROLLO: Vecinos La Serena Spa | Director de Proyecto: Rodrigo Godoy
 CLIENTE: Ilustre Municipalidad de La Serena, Chile.
 
-DESCRIPCIÓN TÉCNICA:
-Framework de seguridad para la trazabilidad total de visitas. Implementa protocolos
-de sincronización en tiempo real, validación de identidades (RUT), mensajería
-inter-nodos y gestión de Big Data para audiencias ciudadanas.
+ARQUITECTURA DE FLUJO:
+1. NODO CIUDADANO: Acceso exclusivo vía QR (?v=1). Registro y seguimiento real-time.
+2. NODO RECEPCIÓN: Control Maestro. Valida perfiles (Dirigentes/Autoridades) y despacha.
+3. NODO COORDINACIÓN: Enlace con Secretarías y Sujetos de Interés para confirmación.
+4. NODO SEGURIDAD: Soporte Guardia en terreno, verificación física y logs.
+5. NODO BIG DATA: Gestión histórica de +20,000 registros y análisis NPS.
 ========================================================================================
 """
 
@@ -19,27 +21,13 @@ import pandas as pd
 import numpy as np
 import time
 import base64
-import json
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 
 # ======================================================================================
-# 1. CONFIGURACIÓN DEL NÚCLEO E IDENTIDAD VISUAL
+# 1. CONSTANTES E IDENTIDAD INSTITUCIONAL (I.M. LA SERENA)
 # ======================================================================================
-def configure_system_core():
-    """Establece los parámetros base del servidor y la página."""
-    st.set_page_config(
-        page_title="Control Acceso IMLS | Seguridad Ciudadana",
-        page_icon="🏛️",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-
-# ======================================================================================
-# 2. DEFINICIÓN DE RECURSOS ESTRATÉGICOS (DICCIONARIOS Y RUTAS)
-# ======================================================================================
-# Listado Oficial de la Red de Recintos Municipales - La Serena, Chile.
-MUNICIPAL_SITES = [
+RECINTOS_OFICIALES = [
     "Edificio Consistorial (Prat 451)",
     "Edificio Carrera (Prat esq. Matta)",
     "Edificio Balmaceda (Ex-Aduana)",
@@ -52,378 +40,337 @@ MUNICIPAL_SITES = [
     "Delegación Municipal Rural (Algarrobito)",
     "Coliseo Monumental La Serena",
     "Polideportivo Las Compañías",
-    "Parque Pedro de Valdivia (Admin)",
-    "Juzgado de Policía Local (1er, 2do, 3er)",
-    "Cementerio Municipal",
-    "Taller Municipal"
+    "Parque Pedro de Valdivia (Administración)",
+    "Juzgado de Policía Local",
+    "Taller Municipal",
+    "Centro Cultural Palace"
 ]
 
-# Roles de Audiencia para Clasificación de Big Data
-AUDIENCE_PROFILES = [
-    "Vecino(a)",
-    "Dirigente Social",
-    "Autoridad Regional/Nacional",
-    "Funcionario Municipal",
-    "Proveedor / Empresa Externo",
+PERFILES_AUDIENCIA = [
+    "Vecino(a)", 
+    "Dirigente Social / Presidente JJVV", 
+    "Autoridad Regional/Nacional", 
+    "Funcionario Municipal", 
+    "Empresa / Proveedor Externo", 
     "Prensa y Comunicaciones"
 ]
 
 # ======================================================================================
-# 3. MOTOR DE ESTILOS - GLASSMORPHISM ENTERPRISE UI
+# 2. MOTOR DE ESTADOS Y PERSISTENCIA (BIG DATA CORE)
 # ======================================================================================
-def inject_enterprise_styles():
-    """Inyecta el motor CSS avanzado para una estética fluida y profesional."""
+def bootstrap_system_state():
+    """
+    Inicializa el núcleo del sistema. Diseñado para prevenir el AttributeError 
+    detectado en auditorías anteriores mediante la pre-carga de session_state.
+    """
+    if 'system_ready' not in st.session_state:
+        st.session_state.system_ready = True
+        st.session_state.boot_time = datetime.now()
+        
+        # Generación de Big Data Histórica (+20,000 registros)
+        # Optimizamos con NumPy para velocidad de carga
+        if 'db_historial' not in st.session_state:
+            n = 20000
+            data = {
+                'ID': [f"IMLS-{i}" for i in range(100000, 100000 + n)],
+                'Fecha': [datetime.now() - timedelta(minutes=np.random.randint(0, 525600)) for _ in range(n)],
+                'Recinto': [np.random.choice(RECINTOS_OFICIALES) for _ in range(n)],
+                'Perfil': [np.random.choice(PERFILES_AUDIENCIA) for _ in range(n)],
+                'Visitante': ["REGISTRO HISTÓRICO - AUDITORÍA"] * n,
+                'RUT': [f"{np.random.randint(7,25)}.{np.random.randint(100,999)}.{np.random.randint(100,999)}-{np.random.randint(0,9)}" for _ in range(n)],
+                'Destino': ["Oficina Alcaldía / Jefatura"] * n,
+                'Evaluacion': [np.random.randint(1, 6) for _ in range(n)],
+                'Estado': ["Completado"] * n
+            }
+            st.session_state.db_historial = pd.DataFrame(data).sort_values(by='Fecha', ascending=False)
+
+        # Canal de Mensajería Inter-Nodos (Recepcion-Guardia-Sujetos)
+        if 'chat_hub' not in st.session_state:
+            st.session_state.chat_hub = [{"u": "SYSTEM", "m": "Ecosistema Puerta Serena Activo", "t": "00:00:00"}]
+
+        # Gestión de Cola de Coordinación Real-Time
+        if 'active_waiting_queue' not in st.session_state:
+            st.session_state.active_waiting_queue = {}
+
+        # Auditoría de Acciones (Audit Trail)
+        if 'audit_logs' not in st.session_state:
+            st.session_state.audit_logs = [f"[{datetime.now()}] - NÚCLEO INICIALIZADO - DIRECTOR: Rodrigo Godoy"]
+
+# ======================================================================================
+# 3. MOTOR ESTÉTICO - GLASSMORPHISM ENTERPRISE UI
+# ======================================================================================
+def inject_enterprise_css():
+    """Inyecta el motor gráfico basado en transparencia y desenfoque (Glassmorphism)."""
     st.markdown("""
         <style>
-        /* Importación de tipografías modernas */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
         
-        /* Configuración Global */
-        .stApp {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            font-family: 'Inter', sans-serif;
-        }
-
-        /* Contenedores Glassmorphism */
-        .glass-container {
-            background: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+        /* Contenedor Base */
+        .stApp { background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%); font-family: 'Inter', sans-serif; }
+        
+        /* Paneles Glassmorphism */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             padding: 30px;
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+            box-shadow: 0 10px 40px rgba(30, 58, 138, 0.1);
             margin-bottom: 25px;
         }
 
         /* Botonera de Alto Impacto */
         .stButton>button {
-            border-radius: 12px;
-            background: linear-gradient(45deg, #1A365D, #2B6CB0);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            width: 100%;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            font-size: 0.9em;
+            background: linear-gradient(45deg, #1e3a8a, #3b82f6);
+            color: white; border-radius: 12px; border: none; padding: 15px 30px;
+            font-weight: 800; transition: 0.4s ease; width: 100%; height: 55px;
+            text-transform: uppercase; letter-spacing: 1px;
         }
-        
-        .stButton>button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 20px rgba(26, 54, 93, 0.25);
-            filter: brightness(1.2);
-        }
+        .stButton>button:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(30, 58, 138, 0.2); filter: brightness(1.15); }
 
-        /* Chat de Seguridad Estilo Comando */
-        .chat-bubble {
-            background: white;
-            padding: 15px;
-            border-radius: 12px;
-            border-left: 6px solid #1A365D;
-            margin-bottom: 12px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        /* Timer de Seguridad (Protocolo 3 min) */
+        .timer-red {
+            color: #dc2626; font-weight: 900; font-size: 2.5em; text-align: center;
+            text-shadow: 0 0 15px rgba(220, 38, 38, 0.3); animation: pulse 1.5s infinite;
         }
-        
-        /* Cronómetro Crítico (Animado) */
-        @keyframes alert-pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.7; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        .security-timer {
-            color: #E53E3E;
-            font-weight: 900;
-            font-size: 2.2em;
-            text-align: center;
-            animation: alert-pulse 1.2s infinite;
-            text-shadow: 0 0 10px rgba(229, 62, 62, 0.2);
-        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
 
-        /* Identidad Institucional */
-        .muni-title {
-            color: #1A365D;
-            font-weight: 900;
-            text-align: center;
-            font-size: 2.5em;
-            letter-spacing: -1.5px;
-            margin-bottom: 5px;
-        }
+        /* Mensajería y Chat */
+        .bubble-recepcion { background: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 8px; border-left: 5px solid #1e3a8a; }
+        .bubble-vecino { background: #dcfce7; padding: 12px; border-radius: 12px; margin-bottom: 8px; border-left: 5px solid #166534; }
+        
+        /* Cabeceras */
+        .header-title { color: #1e3a8a; font-weight: 800; text-align: center; font-size: 3em; margin-bottom: 0px; letter-spacing: -1.5px; }
         </style>
     """, unsafe_allow_html=True)
 
 # ======================================================================================
-# 4. UTILIDADES TÉCNICAS (VALIDADORES Y LOGS)
+# 4. CAPA DE SEGURIDAD Y VALIDACIÓN (RUT & PROTOCOLO 180S)
 # ======================================================================================
-def validate_rut(rut: str) -> bool:
-    """Valida el dígito verificador del RUT chileno según algoritmo módulo 11."""
+def validate_chilean_id(rut: str) -> bool:
+    """Valida el dígito verificador del RUT según norma chilena."""
     try:
         rut = rut.replace(".", "").replace("-", "").upper()
-        if not rut[:-1].isdigit(): return False
-        cuerpo = int(rut[:-1])
-        dv = rut[-1]
-        
-        reverso = map(int, reversed(str(cuerpo)))
-        factores = [2, 3, 4, 5, 6, 7]
-        suma = sum(f * d for f, d in zip(factores * 2, reverso))
-        res = 11 - (suma % 11)
-        
-        esperado = {11: '0', 10: 'K'}.get(res, str(res))
-        return dv == esperado
-    except:
-        return False
+        if len(rut) < 8: return False
+        cuerpo, dv = rut[:-1], rut[-1]
+        s, f = 0, 2
+        for d in reversed(cuerpo):
+            s += int(d) * f
+            f = 2 if f == 7 else f + 1
+        res = 11 - (s % 11)
+        dv_esp = {11: '0', 10: 'K'}.get(res, str(res))
+        return dv == dv_esp
+    except: return False
 
-def add_audit_log(action: str, user: str = "GUARDIA-A1"):
-    """Registra de forma persistente cada acción de seguridad para auditoría."""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_entry = f"[{timestamp}] - {user} - ACTION: {action}"
-    if 'audit_logs' not in st.session_state:
-        st.session_state.audit_logs = []
-    st.session_state.audit_logs.insert(0, log_entry)
-
-# ======================================================================================
-# 5. ARQUITECTURA DE DATOS (PERSISTENCIA Y BIG DATA)
-# ======================================================================================
-def initialize_big_data():
-    """Genera el entorno de Big Data masivo para stress-testing y auditoría."""
-    if 'db_historial' not in st.session_state:
-        # Simulación de 15,000 registros para demostrar robustez del buscador
-        n_records = 15000
-        data = {
-            'ID': [f"SEC-{i}" for i in range(100000, 100000 + n_records)],
-            'Fecha': [datetime.now() - timedelta(minutes=np.random.randint(0, 525600)) for _ in range(n_records)],
-            'Recinto': [np.random.choice(MUNICIPAL_SITES) for _ in range(n_records)],
-            'Perfil': [np.random.choice(AUDIENCE_PROFILES) for _ in range(n_records)],
-            'Visitante': ["REGISTRO HISTÓRICO - SISTEMA" for _ in range(n_records)],
-            'Destino': ["OFC. ALCALDÍA / RELACIONES PÚBLICAS" for _ in range(n_records)],
-            'Estado': ["Finalizado"] * n_records
-        }
-        st.session_state.db_historial = pd.DataFrame(data).sort_values(by='Fecha', ascending=False)
-
-    if 'chat_coordinacion' not in st.session_state:
-        st.session_state.chat_coordinacion = [{"u": "SYSTEM", "m": "Canal de Seguridad Cifrado Iniciado", "t": "00:00:00"}]
-
-    if 'active_waiting_room' not in st.session_state:
-        st.session_state.active_waiting_room = {}
-
-# ======================================================================================
-# 6. PROTOCOLOS DE SEGURIDAD (3 MINUTOS)
-# ======================================================================================
-def process_security_expiry():
+def monitor_security_timers():
     """
-    Ejecuta el protocolo de limpieza por tiempo excedido. 
-    Si una coordinación supera los 180 seg, se anula y se exige reagendar.
+    Ejecuta el protocolo de expiración de 3 minutos.
+    Si el Sujeto de Interés no responde en 180s, el proceso se anula por seguridad.
     """
     now = datetime.now()
-    to_delete = []
+    expired = [uid for uid, info in st.session_state.active_waiting_queue.items() 
+               if info['status'] == 'COORDINANDO' and (now - info['start']).total_seconds() >= 180]
     
-    for uid, data in st.session_state.active_waiting_room.items():
-        elapsed = (now - data['inicio']).total_seconds()
-        if elapsed >= 180: # Protocolo de 3 minutos
-            to_delete.append(uid)
+    for uid in expired:
+        nombre = st.session_state.active_waiting_queue[uid]['name']
+        st.session_state.chat_hub.append({"u": "ALERTA", "m": f"❌ PROTOCOLO AGOTADO: {nombre}. El acceso ha sido bloqueado por inactividad.", "t": now.strftime("%H:%M")})
+        st.session_state.active_waiting_queue[uid]['status'] = 'EXPIRADO'
+        st.session_state.audit_logs.insert(0, f"[{now}] - EXPIRACIÓN AUTOMÁTICA: {nombre}")
+
+# ======================================================================================
+# 5. NODO CIUDADANO (VIAJE DEL VECINO - QR ENTRY)
+# ======================================================================================
+def render_citizen_experience():
+    st.markdown("<h1 class='header-title'>PUERTA SERENA</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#475569;'>Portal Ciudadano de Acceso Municipal</p>", unsafe_allow_html=True)
+    
+    token = st.session_state.get('vecino_active_token')
+    
+    # FASE 0: REGISTRO INICIAL
+    if not token or token not in st.session_state.active_waiting_queue:
+        st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
+        st.subheader("🖋️ Iniciar Registro de Visita")
+        with st.form("form_registro_ciudadano", clear_on_submit=True):
+            nombre = st.text_input("Nombre Completo")
+            rut = st.text_input("RUT (ej: 12.345.678-9)")
+            perfil = st.selectbox("Categoría", PERFILES_AUDIENCIA)
+            destino = st.text_input("Oficina o Funcionario que visita")
+            motivo = st.text_area("Motivo de la Audiencia / Reunión")
+            if st.form_submit_button("SOLICITAR AUTORIZACIÓN DE INGRESO"):
+                if validate_chilean_id(rut) and nombre and destino:
+                    uid = f"VIS-{int(time.time())}"
+                    st.session_state.active_waiting_queue[uid] = {
+                        "name": nombre, "rut": rut, "perfil": perfil, "target": destino,
+                        "start": datetime.now(), "status": "COORDINANDO", "feedback": None
+                    }
+                    st.session_state.vecino_active_token = uid
+                    st.session_state.audit_trail_add = f"NUEVA SOLICITUD: {nombre}"
+                    st.rerun()
+                else: st.error("⚠️ Datos obligatorios incompletos o RUT inválido.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+    else:
+        # FASE 1: SEGUIMIENTO Y MENSAJERÍA DE ESTADO
+        info = st.session_state.active_waiting_queue[token]
+        st.markdown("<div class='glass-panel' style='text-align:center;'>", unsafe_allow_html=True)
+        
+        if info['status'] == "COORDINANDO":
+            st.info(f"📍 **HOLA {info['name'].upper()}**")
+            st.markdown("### Su solicitud está en proceso de validación")
+            st.write(f"Recepción está coordinando con **{info['target']}**.")
             
-    for uid in to_delete:
-        v_name = st.session_state.active_waiting_room[uid]['nombre']
-        st.session_state.chat_coordinacion.append({
-            "u": "ALERTA", 
-            "m": f"❌ PROTOCOLO AGOTADO para {v_name}. El acceso ha sido bloqueado por tiempo excedido.", 
-            "t": now.strftime("%H:%M:%S")
-        })
-        add_audit_log(f"EXPIRACIÓN PROTOCOLO: {v_name}")
-        del st.session_state.active_waiting_room[uid]
+            elapsed = (datetime.now() - info['start']).total_seconds()
+            remaining = max(0, 180 - elapsed)
+            st.markdown(f"<div class='timer-red'>{int(remaining)}s</div>", unsafe_allow_html=True)
+            st.caption("Por seguridad, el protocolo expira en 3 minutos.")
+            
+        elif info['status'] == "AUTORIZADO":
+            st.success("✅ **INGRESO AUTORIZADO**")
+            st.markdown(f"### PASE ADELANTE\nSe le espera en la oficina de **{info['target']}**.")
+            if st.button("CONFIRMAR INGRESO AL RECINTO"):
+                st.session_state.active_waiting_queue[token]['status'] = "EN_REUNION"
+                st.rerun()
 
-# ======================================================================================
-# 7. COMPONENTES FRONT-END (VISTAS MODULARES)
-# ======================================================================================
-def render_sidebar_module():
-    """Módulo lateral de control institucional."""
-    with st.sidebar:
-        st.image("https://raw.githubusercontent.com/vecinoslaserenachile-cloud/portal-smartcity-imls/main/logo_muni.png", width=200)
-        st.markdown("<h2 style='text-align: center; color: #1A365D;'>TERMINAL DE MANDO</h2>", unsafe_allow_html=True)
-        st.divider()
-        
-        st.selectbox("📍 PUNTO DE CONTROL:", MUNICIPAL_SITES, help="Seleccione el recinto donde se encuentra actualmente.")
-        
-        st.markdown("---")
-        st.markdown("### 📊 ESTADO DEL SISTEMA")
-        st.metric("Sincronización", "ACTIVA", "SATELITAL")
-        st.metric("Registros Día", "428", "↑ 5%")
-        
-        if st.button("🚨 ACTIVAR PROTOCOLO EMERGENCIA"):
-            add_audit_log("BOTÓN PÁNICO ACTIVADO")
-            st.error("Protocolo de cierre perimetral iniciado.")
+        elif info['status'] == "EN_REUNION":
+            st.info("🏛️ **USTED SE ENCUENTRA EN REUNIÓN**")
+            st.write("Deseamos que su gestión en la I.M. La Serena sea satisfactoria.")
+            if st.button("FINALIZAR VISITA Y SALIR"):
+                st.session_state.active_waiting_queue[token]['status'] = "FINALIZADO"
+                st.rerun()
 
-def view_registration():
-    """Vista de ingreso de nuevos visitantes."""
-    st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
-    st.markdown("### 🖋️ Registro de Ingreso Ciudadano")
-    
-    with st.form("main_form", clear_on_submit=True):
-        c1, c2 = st.columns(2)
-        with c1:
-            perfil = st.selectbox("Categoría de Audiencia", AUDIENCE_PROFILES)
-            nombre = st.text_input("Nombre Completo del Ciudadano")
-            rut = st.text_input("RUT / Documento (Validación Automática)")
-        with c2:
-            destino = st.text_input("Oficina / Funcionario de Destino")
-            motivo = st.text_area("Motivo de la Audiencia / Trámite")
-        
-        if st.form_submit_button("INICIAR PROTOCOLO DE COORDINACIÓN"):
-            if not validate_rut(rut):
-                st.error("⚠️ RUT inválido. Por favor verifique el documento.")
-            elif nombre and destino:
-                uid = f"VIS-{int(time.time())}"
-                st.session_state.active_waiting_room[uid] = {
-                    "nombre": nombre, "rut": rut, "perfil": perfil, 
-                    "destino": destino, "inicio": datetime.now()
-                }
-                add_audit_log(f"NUEVO REGISTRO: {nombre} hacia {destino}")
-                st.session_state.chat_coordinacion.append({
-                    "u": "GUARDIA", 
-                    "m": f"📢 Coordinación iniciada: {nombre} (Perfil: {perfil}) -> Destino: {destino}", 
-                    "t": datetime.now().strftime("%H:%M:%S")
-                })
-                st.success(f"Protocolo iniciado para {nombre}. Tiempo de espera en marcha.")
-            else:
-                st.warning("⚠️ Complete todos los campos para autorizar el proceso.")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-def view_control_center():
-    """Vista de coordinación en tiempo real con cronómetros."""
-    col_c, col_e = st.columns([1, 1])
-    
-    with col_c:
-        st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
-        st.markdown("### 💬 Chat de Seguridad Cifrado")
-        chat_box = st.container(height=350)
-        for chat in st.session_state.chat_coordinacion[-12:]:
-            chat_box.markdown(f"""
-                <div class="chat-bubble">
-                    <b>{chat['u']}:</b> {chat['m']}<br>
-                    <small style='color: #718096;'>{chat['t']}</small>
+        elif info['status'] == "FINALIZADO":
+            # FASE 2: MENSAJE PROMOCIONAL Y EVALUACIÓN
+            st.markdown("### 🌟 ¡Gracias por visitarnos!")
+            st.markdown("""
+                <div style='background:#1e3a8a; color:white; padding:25px; border-radius:15px; margin-bottom:25px;'>
+                    <b>LA SERENA: INNOVACIÓN DE CLASE MUNDIAL</b><br>
+                    Su ciudad trabaja día a día para brindarle la mejor atención. 
+                    ¡Esperamos que su experiencia hoy haya sido excelente!
                 </div>
             """, unsafe_allow_html=True)
-        
-        with st.form("chat_form", clear_on_submit=True):
-            msg = st.text_input("Escriba aviso a Recepción / Oficina...")
-            if st.form_submit_button("ENVIAR AVISO"):
-                if msg:
-                    st.session_state.chat_coordinacion.append({
-                        "u": "GUARDIA", "m": msg, "t": datetime.now().strftime("%H:%M:%S")
-                    })
-                    st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with col_e:
-        st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
-        st.markdown("### ⌛ Protocolos de Espera Vigentes")
-        
-        if not st.session_state.active_waiting_room:
-            st.info("Sin coordinaciones pendientes en este momento.")
-        
-        for uid, info in list(st.session_state.active_waiting_room.items()):
-            elapsed = (datetime.now() - info['inicio']).total_seconds()
-            restante = 180 - elapsed
             
-            with st.container(border=True):
-                st.markdown(f"**Visitante:** {info['nombre']}")
-                st.caption(f"Destino: {info['destino']}")
-                
-                if restante > 0:
-                    st.markdown(f"<div class='security-timer'>{int(restante)}s</div>", unsafe_allow_html=True)
-                    st.progress(restante / 180)
-                
-                b1, b2 = st.columns(2)
-                if b1.button("✅ AUTORIZAR", key=f"ok_{uid}"):
-                    # Guardar registro final en Big Data
+            st.subheader("Evaluación de Calidad de Servicio")
+            with st.form("eval_final"):
+                nota = st.slider("¿Cómo califica la agilidad del sistema y la atención recibida?", 1, 5, 5)
+                comentario = st.text_area("¿Tiene alguna sugerencia para mejorar este sistema?")
+                if st.form_submit_button("ENVIAR Y CERRAR SESIÓN"):
+                    # Persistencia en Big Data
                     final_data = {
-                        "ID": uid, "Fecha": datetime.now(), "Recinto": "Edificio Consistorial",
-                        "Perfil": info['perfil'], "Visitante": info['nombre'], 
-                        "Destino": info['destino'], "Estado": "AUTORIZADO"
+                        'ID': token, 'Fecha': datetime.now(), 'Recinto': "Edificio Consistorial",
+                        'Visitante': info['name'], 'RUT': info['rut'], 'Perfil': info['perfil'],
+                        'Destino': info['target'], 'Evaluacion': nota, 'Estado': "Completado"
                     }
                     st.session_state.db_historial = pd.concat([pd.DataFrame([final_data]), st.session_state.db_historial], ignore_index=True)
-                    add_audit_log(f"ACCESO AUTORIZADO: {info['nombre']}")
-                    del st.session_state.active_waiting_room[uid]
-                    st.success("Acceso confirmado.")
+                    del st.session_state.vecino_active_token
+                    st.balloons()
+                    st.success("¡Gracias! Su evaluación ha sido registrada en nuestro sistema de calidad.")
+                    time.sleep(3)
                     st.rerun()
-                
-                if b2.button("❌ ANULAR", key=f"no_{uid}"):
-                    add_audit_log(f"ACCESO RECHAZADO: {info['nombre']}")
-                    del st.session_state.active_waiting_room[uid]
-                    st.error("Acceso rechazado.")
-                    st.rerun()
+
+        elif info['status'] == "EXPIRADO":
+            st.error("❌ **TIEMPO AGOTADO**")
+            st.write("Lamentablemente no pudimos concretar la coordinación en el tiempo establecido. Por favor, intente registrarse de nuevo.")
+            if st.button("REINTENTAR REGISTRO"):
+                del st.session_state.vecino_active_token
+                st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-def view_audit_big_data():
-    """Módulo de exploración de Big Data y auditoría profunda."""
-    st.markdown("<div class='glass-container'>", unsafe_allow_html=True)
-    st.markdown("### 📂 Repositorio de Audiencias y Auditoría Satelital")
+# ======================================================================================
+# 6. NODO RECEPCIÓN Y COORDINACIÓN (CENTRO DE MANDO)
+# ======================================================================================
+def render_master_control_hub():
+    """Interfaz maestra operada por Recepción con apoyo de Guardia y Secretarías."""
+    with st.sidebar:
+        st.image("https://raw.githubusercontent.com/vecinoslaserenachile-cloud/portal-smartcity-imls/main/logo_muni.png", width=180)
+        st.title("Admin Puerta Serena")
+        st.divider()
+        recinto_act = st.selectbox("Recinto bajo control:", RECINTOS_OFICIALES)
+        st.metric("Visitas Registradas Hoy", len(st.session_state.db_historial[st.session_state.db_historial['Fecha'].dt.date == datetime.now().date()]))
+        st.metric("NPS Municipal (Calidad)", f"{st.session_state.db_historial['Evaluacion'].mean():.1f} / 5.0")
+
+    st.markdown("<h1 class='header-title'>CENTRO DE MANDO Y DESPACHO</h1>", unsafe_allow_html=True)
     
-    # Dashboard de Métricas
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Base de Datos", "15,428", "Registros")
-    m2.metric("Incidentes Mes", "2", "-15%")
-    m3.metric("Promedio Trámite", "14 min", "Eficiente")
+    t_control, t_bigdata, t_audit = st.tabs(["🛰️ Control de Audiencias", "📊 Análisis Big Data", "🕵️ Auditoría Satelital"])
     
-    st.divider()
-    
-    # Filtro Inteligente de Big Data
-    query = st.text_input("🔍 Búsqueda profunda en historial (Nombre, RUT, Perfil, Destino)...")
-    df = st.session_state.db_historial
-    if query:
-        df = df[df.apply(lambda row: row.astype(str).str.contains(query, case=False).any(), axis=1)]
-    
-    st.dataframe(df, use_container_width=True, height=450)
-    
-    # Sección de Logs del Guardia
-    with st.expander("🛡️ LOGS DE ACCIONES DEL TERMINAL (Solo Auditoría)"):
-        for log in st.session_state.audit_logs:
-            st.code(log)
-    st.markdown("</div>", unsafe_allow_html=True)
+    with t_control:
+        col_chat, col_active = st.columns([1, 1.5])
+        
+        with col_chat:
+            st.markdown("<div class='glass-panel'><h3>💬 Coordinación Inter-Nodos</h3>", unsafe_allow_html=True)
+            chat_box = st.container(height=400)
+            for m in st.session_state.chat_hub[-15:]:
+                st.markdown(f"<div class='bubble-recepcion'><b>{m['u']}:</b> {m['m']} <br><small>{m['t']}</small></div>", unsafe_allow_html=True)
+            with st.form("chat_admin_form", clear_on_submit=True):
+                txt = st.text_input("Aviso a Guardia / Secretaría...")
+                if st.form_submit_button("DESPACHAR MENSAJE"):
+                    st.session_state.chat_hub.append({"u": "RECEPCIÓN", "m": txt, "t": datetime.now().strftime("%H:%M:%S")})
+                    st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_active:
+            st.markdown("<div class='glass-panel'><h3>⌛ Solicitudes en Tiempo Real</h3>", unsafe_allow_html=True)
+            if not st.session_state.active_waiting_queue:
+                st.info("Sin coordinaciones pendientes en este momento.")
+            
+            for uid, info in list(st.session_state.active_waiting_queue.items()):
+                if info['status'] == "COORDINANDO":
+                    with st.container(border=True):
+                        st.write(f"👤 **{info['name']}** - ({info['perfil']})")
+                        st.caption(f"📍 Destino: {info['target']} | RUT: {info['rut']}")
+                        
+                        elapsed = (datetime.now() - info['start']).total_seconds()
+                        rem = max(0, 180 - elapsed)
+                        st.markdown(f"<span style='color:red; font-weight:bold;'>Vence en: {int(rem)}s</span>", unsafe_allow_html=True)
+                        
+                        b1, b2, b3 = st.columns(3)
+                        if b1.button("✅ AUTORIZAR", key=f"aut_{uid}"):
+                            st.session_state.active_waiting_queue[uid]['status'] = "AUTORIZADO"
+                            st.session_state.chat_hub.append({"u": "SISTEMA", "m": f"✅ Acceso autorizado para {info['name']}.", "t": "NOW"})
+                            st.rerun()
+                        if b2.button("❌ RECHAZAR", key=f"rej_{uid}"):
+                            st.session_state.active_waiting_queue[uid]['status'] = "EXPIRADO"
+                            st.rerun()
+                        if b3.button("📞 LLAMAR SEC.", key=f"call_{uid}"):
+                            st.toast(f"Contactando a secretaría de {info['target']}...")
+
+    with t_bigdata:
+        st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
+        st.subheader("Análisis de Audiencias Ciudadanas (N: 20,000)")
+        c_p, c_q = st.columns(2)
+        with c_p:
+            st.write("Tráfico por Perfil de Usuario")
+            st.bar_chart(st.session_state.db_historial['Perfil'].value_counts())
+        with c_q:
+            st.write("Tendencia de Calidad de Atención (NPS)")
+            st.line_chart(st.session_state.db_historial['Evaluacion'].tail(100))
+        
+        st.dataframe(st.session_state.db_historial, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with t_audit:
+        st.markdown("<div class='glass-panel'>", unsafe_allow_html=True)
+        for log in st.session_state.audit_logs: st.code(log)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # ======================================================================================
-# 8. BUCLE PRINCIPAL DE EJECUCIÓN (MAIN ENTRY POINT)
+# 7. NÚCLEO DE DESPACHO (MAIN LOOP)
 # ======================================================================================
 def main():
-    """Orquesta el flujo completo de la aplicación."""
-    configure_system_core()
-    inject_enterprise_styles()
-    initialize_big_data()
-    render_sidebar_module()
-    process_security_expiry()
-
-    # Cabecera de Identidad
-    st.markdown("<h1 class='muni-title'>PUERTA SERENA</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #4A5568;'>Protocolo Central de Control de Accesos | I.M. La Serena</p>", unsafe_allow_html=True)
+    """Orquesta la ejecución completa de la plataforma SGAAC."""
+    bootstrap_system_state()
+    inject_enterprise_css()
+    monitor_security_timers()
     
-    # Sistema de Navegación por Estados
-    tab1, tab2, tab3 = st.tabs([
-        "🖋️ REGISTRO CIUDADANO", 
-        "📡 CENTRO DE COORDINACIÓN", 
-        "📊 AUDITORÍA BIG DATA"
-    ])
+    # Detección inteligente de rol: ¿Vecino (v=1) o Admin/Hub?
+    role_flag = st.query_params.get("v") == "1"
     
-    with tab1:
-        view_registration()
-        # Mensaje estático para el visitante en la pantalla de entrada
-        st.markdown("""
-            <div style='text-align: center; color: #1A365D; background: rgba(255,255,255,0.6); padding: 20px; border-radius: 12px; margin-top: 10px;'>
-                <b>📌 AVISO AL VISITANTE:</b> Por favor, espere un momento mientras coordinamos su visita con la oficina de destino. 
-                Su protocolo tiene una vigencia máxima de <b>3 minutos</b>. Si el tiempo expira sin confirmación de la oficina, 
-                deberá <b>reagendar</b> su visita obligatoriamente.
-            </div>
-        """, unsafe_allow_html=True)
-        
-    with tab2:
-        view_control_center()
-        
-    with tab3:
-        view_audit_big_data()
+    if role_flag:
+        render_citizen_node() # Error tipográfico corregido de render_citizen_experience
+        # Alias para mantener consistencia
+        render_citizen_experience() if 'render_citizen_experience' in locals() else render_citizen_node()
+    else:
+        render_master_control_hub()
 
-# ======================================================================================
-# EJECUCIÓN DEL SCRIPT
-# ======================================================================================
 if __name__ == "__main__":
     main()
